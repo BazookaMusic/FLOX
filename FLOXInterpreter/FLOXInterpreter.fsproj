@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="RuntimeErrors.fs" />
+    <Content Include="lox_examples\fibonacci.lox" />
+    <Compile Include="Errors.fs" />
+    <Compile Include="Tokens.fs" />
+    <Compile Include="Scanner.fs" />
+    <Compile Include="AST.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="TreeWalkRuntime.fs" />
+    <Compile Include="Interpreter.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+</Project>

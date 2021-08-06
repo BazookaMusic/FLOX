@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30406.217
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FLOXInterpreter", "FLOXInterpreter.fsproj", "{D55F2AFD-C149-4B80-ACA1-9257E16DADED}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "InterpreterTest", "..\InterpreterTest\InterpreterTest.fsproj", "{17FCCB84-19B6-4CA2-A6BB-031D8180E53D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D55F2AFD-C149-4B80-ACA1-9257E16DADED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D55F2AFD-C149-4B80-ACA1-9257E16DADED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D55F2AFD-C149-4B80-ACA1-9257E16DADED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D55F2AFD-C149-4B80-ACA1-9257E16DADED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17FCCB84-19B6-4CA2-A6BB-031D8180E53D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17FCCB84-19B6-4CA2-A6BB-031D8180E53D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17FCCB84-19B6-4CA2-A6BB-031D8180E53D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17FCCB84-19B6-4CA2-A6BB-031D8180E53D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E0FB5751-1869-4D3B-A295-A9B4B3E24F40}
+	EndGlobalSection
+EndGlobal

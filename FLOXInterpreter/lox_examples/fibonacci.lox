@@ -1,0 +1,17 @@
+﻿fun fibonacci(n) {
+	i = 0;
+
+	acc = 0;
+
+	while (i < n)
+	{
+		acc = acc + i;
+	}
+	
+	return acc;
+}
+
+fun main()
+{
+	return fibonacci(1025);
+}

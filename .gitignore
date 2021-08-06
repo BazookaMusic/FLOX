@@ -1,3 +1,9 @@
 .vs
 
-/bin
+bin
+
+obj
+
+/FLOXInterpreter/Properties
+
+TestResults

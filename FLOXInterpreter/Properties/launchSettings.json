@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "FLOXInterpreter": {
-      "commandName": "Project",
-      "commandLineArgs": "C:\\Users\\Sotiris\\source\\repos\\FLOXInterpreter\\lox_examples\\fibonacci.lox"
-    }
-  }
-}

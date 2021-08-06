@@ -37,6 +37,7 @@ type Expression =
     | Grouping of Expression
     | Unary of UnaryOperator * Expression
     | Literal of Literal
+    | Assign of Identifier * Expression
     // no source should be valid
     | Empty
     | Invalid

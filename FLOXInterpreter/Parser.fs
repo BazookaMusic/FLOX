@@ -140,9 +140,24 @@ and ParseEquality (tokens: ScannerToken list): ParseResult<Expression> =
     | Ok (expr, rest) -> ParseMultipleOfSameType rest ParseComparison expr  (fun token -> token.Type = BANG_EQUAL || token.Type = EQUAL_EQUAL) "equality"
     | Error (errors, rest) -> parseComp
 
-and ParseExpression (tokens: ScannerToken list): ParseResult<Expression> =
-    ParseEquality tokens
+and IsAssignment (tokens: ScannerToken list): bool =
+    match tokens with
+    | (identifier::eq::rest) when identifier.Type = IDENTIFIER && eq.Type = EQUAL -> true
+    | _ -> false
 
+and ParseAssignment (tokens: ScannerToken list): ParseResult<Expression> =
+    let (identifier::_::rest) = tokens
+    let expressionResult = ParseExpression rest
+
+    match expressionResult with
+    | Ok (expression, restOfTokens) -> Ok (Expression.Assign (VarIdentifier identifier.Lexeme, expression), restOfTokens)
+    | error -> error
+    
+and ParseExpression (tokens: ScannerToken list): ParseResult<Expression> =
+    if (IsAssignment tokens) then
+        ParseAssignment tokens
+    else
+        ParseEquality tokens
 
 let ParseStatement (tokens: ScannerToken list) (statementConstructor: Expression->Statement): ParseResult<Statement> = 
     match ParseExpression tokens with

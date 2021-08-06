@@ -8,6 +8,7 @@ open Scanner
 open AST
 open TreeWalkRuntime
 open RuntimeErrors
+open RuntimeTypes
 open Interpreter
 
 [<TestClass>]
@@ -21,9 +22,22 @@ type TreeWalkRuntimeTest () =
         | (h::t) when h.Type = EOF -> ()
         | _ -> Assert.Fail (sprintf "No tokens should remain but instead got '%A'" rest)
         expression
+
+    let ResultsOrPanic result = match result with
+    | ParseResult.Error (e, rest) -> 
+        Assert.Fail (sprintf "%A" e)
+        []
+    | ParseResult.Ok (declarationList, rest) ->
+        match rest with
+        | (h::t) when h.Type = EOF -> ()
+        | _ -> Assert.Fail (sprintf "No tokens should remain but instead got '%A'" rest)
+        declarationList
     
     let AddBoilerPlate source = source 
+
     let ParseSource source = source |> AddBoilerPlate |> ScanTokens |> Seq.toList |> ParseExpression |> ExpressionOrPanic
+
+    let ParseDeclaration source : Declaration list = source |> AddBoilerPlate |> ScanTokens |> ParseProgram |> ResultsOrPanic
 
     let rec getn n xs =
         match n, xs with
@@ -32,7 +46,7 @@ type TreeWalkRuntimeTest () =
           | _, []       -> invalidArg "n" "n is too large"
 
     let rec AssertEvaluationsMatch (sources: string list) (expected: EvaluationResult list) =
-        let actual = List.map (fun s -> s |> ParseSource |> Evaluate) sources
+        let actual = List.map (fun s -> s |> ParseSource |> (EvaluateExpression GlobalEnvironment)) sources
 
         Assert.AreEqual (sources.Length, expected.Length)
 
@@ -46,8 +60,29 @@ type TreeWalkRuntimeTest () =
 
         List.iter equalityFun actualExpectedPairs
 
+    let rec AssertDeclarationEvaluationsMatch (sources: string list) (expected: EvaluationResult list list) =
+        let actual = List.map (fun s -> s |> ParseDeclaration |> (List.map (EvaluateDeclaration GlobalEnvironment))) sources
+
+        Assert.AreEqual (sources.Length, expected.Length)
+
+        let actualExpectedPairs = List.zip expected actual
+
+        let equalityFun (xs: EvaluationResult list, ys: EvaluationResult list) =
+            Assert.AreEqual (xs.Length, ys.Length, sprintf "Different no of actual results then expected for expected:'%A' and actual: '%A'" ys xs)
+
+            let innerEqualityFun (x: EvaluationResult list, y: EvaluationResult list) =
+                Assert.AreEqual (x.Length, y.Length, sprintf "Different no of actual results then expected for expected:'%A' and actual: '%A'" y x)
+
+                let innerActualExpectedPairs = List.zip y x
+
+                List.iter (fun (x,y) -> Assert.AreEqual (x,y)) innerActualExpectedPairs
+
+            List.iter innerEqualityFun actualExpectedPairs
+        
+        List.iter equalityFun actualExpectedPairs
+
     let rec AssertErrorTypesMatch (sources: string list) (expected: EvaluationResult list) =
-        let actual = List.map (fun s -> s |> ParseSource |> Evaluate) sources
+        let actual = List.map (fun s -> s |> ParseSource |> (EvaluateExpression GlobalEnvironment)) sources
 
         Assert.AreEqual (sources.Length, expected.Length)
 
@@ -192,6 +227,24 @@ type TreeWalkRuntimeTest () =
         ]
 
         AssertErrorTypesMatch sources expected
+
+    [<TestMethod>]
+    member this.VariableDeclarationTest () =
+        let sources = [
+            "var peopleAmount = 14; peopleAmount + 1; peopleAmount * 1; 1024 * 2;"
+            "var boys = \"boys\"; boys + \" and girls\";"
+            "var hello = (1996 + 1 - 1 + 2 - 2) * (1024 / 1024); hello;"
+            "var hello = 2048; var hello = 2019; var hello = 2024;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok (Double 14.0); Ok (Double 15.0); Ok (Double 14.0); Ok (Double 2048.0)]
+            [Ok (String "boys"); Ok (String "boys and girls");]
+            [Ok (Double 1996.0); Ok (Double 1996.0)]
+            [Ok (Double 2048.0); Ok (Double 2019.0); Ok (Double 2024.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
 
     // TODOS: 
     // 1) Add tests for a mix of expressions

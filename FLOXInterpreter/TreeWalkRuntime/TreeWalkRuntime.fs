@@ -2,18 +2,8 @@
 
 open AST
 open RuntimeErrors
-
-type FLOXValue =
-    | Object of obj
-    | Nil
-    | String of string
-    | Boolean of bool
-    | Double of double
-    | VOID
-
-type EvaluationResult = 
-    | Ok of FLOXValue
-    | Error of RuntimeError
+open RuntimeTypes
+open Environment
 
 let ConvertToNumeric (value: FLOXValue): EvaluationResult =
     match value with
@@ -118,14 +108,14 @@ let EvaluateUnary (evaluationFn: Expression -> EvaluationResult) (op: UnaryOpera
             assert false
             Error (FatalError "Invalid operator.")
 
-let EvaluateLiteral (literal: Literal) : FLOXValue = 
+let EvaluateLiteral (env: Environment) (literal: Literal) : EvaluationResult = 
     match literal with
-        | NUMBER num -> Double num
-        | STRING str -> String str
-        | NIL -> Nil
-        | TRUEVAL -> Boolean true
-        | FALSEVAL -> Boolean false
-
+        | NUMBER num -> Ok (Double num)
+        | STRING str -> Ok (String str)
+        | NIL -> Ok Nil
+        | TRUEVAL -> Ok (Boolean true)
+        | FALSEVAL -> Ok (Boolean false)
+        | IDENTIFIER varName -> GetVariableValueOrError env (VarIdentifier varName)
 
 let EvaluateBinary (evaluationFn: Expression -> EvaluationResult) (left: Expression) (op: BinaryOperator) (right: Expression) =
     match op with
@@ -144,14 +134,46 @@ let EvaluateBinary (evaluationFn: Expression -> EvaluationResult) (left: Express
             assert false
             Error (FatalError "Invalid binary operator")
 
-let rec Evaluate (expression: Expression): EvaluationResult =
+let rec EvaluateExpression (environment: Environment) (expression: Expression): EvaluationResult =
     match expression with
-        | Literal lit -> Ok (EvaluateLiteral lit)
-        | Unary (op, expr) -> EvaluateUnary Evaluate op expr
-        | Grouping expr -> Evaluate expr
-        | BinaryExpression (left, op, right) -> EvaluateBinary (Evaluate) left op right
+        | Literal lit -> EvaluateLiteral environment lit
+        | Assign (identifier, expression) ->
+            let result = EvaluateExpression environment expression
+
+            match result with
+            | Ok v -> 
+                DefineVariable environment  identifier v
+                result
+            | error -> error
+        | Unary (op, expr) -> EvaluateUnary (EvaluateExpression environment) op expr
+        | Grouping expr -> EvaluateExpression environment expr
+        | BinaryExpression (left, op, right) -> EvaluateBinary (EvaluateExpression environment) left op right
         | Empty -> Ok VOID
         | Invalid ->
             // should be unreachable
             assert false
             Error (FatalError "Invalid value detected by runtime.")
+
+let EvaluateStatement (environment: Environment) (statement: Statement): EvaluationResult =
+    match statement with
+    | ExpressionStatement expression | PrintStatement expression ->
+        EvaluateExpression environment expression
+
+let EvaluateDeclaration (environment: Environment) (declaration: Declaration): EvaluationResult =
+    match declaration with
+    | StatementDeclaration statement -> EvaluateStatement environment statement
+    | VariableDeclaration (identifier, maybeExpression) ->
+        let value = match maybeExpression with
+            | Some expression -> EvaluateExpression environment expression
+            | None -> Ok Nil
+
+        match value with
+        | Ok v -> 
+            DefineVariable environment identifier v
+            value
+        | error -> error
+        
+let GlobalEnvironment = NewEnvironment None
+
+let ProgramEvaluate (env: Environment) (declarations: Declaration list): EvaluationResult list =
+    List.map (EvaluateDeclaration env) declarations

@@ -1,9 +1,12 @@
 .vs
 
-bin
+bin/
 
-obj
+obj/
 
-/FLOXInterpreter/Properties
+FLOXInterpreter/Properties/
+
+InterpreterTest/obj/
+InterpreterTest/bin/
 
 TestResults

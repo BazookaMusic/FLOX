@@ -6,6 +6,7 @@ open Scanner
 open Parser
 open AST
 open TreeWalkRuntime
+open RuntimeTypes
 
 let UnwrapExpression (parseResult:ParseResult<Expression>): Expression = 
     match parseResult with

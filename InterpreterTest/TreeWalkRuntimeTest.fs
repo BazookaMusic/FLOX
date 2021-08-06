@@ -75,7 +75,13 @@ type TreeWalkRuntimeTest () =
 
                 let innerActualExpectedPairs = List.zip y x
 
-                List.iter (fun (x,y) -> Assert.AreEqual (x,y)) innerActualExpectedPairs
+                let resultComparison (x, y) =
+                    match (x,y) with
+                    | (Error e1, Error e2) ->
+                        Assert.AreEqual (e2.GetType(), e1.GetType())
+                    | (v1, v2) -> Assert.AreEqual (v2,v1)
+
+                List.iter resultComparison innerActualExpectedPairs
 
             List.iter innerEqualityFun actualExpectedPairs
         
@@ -229,12 +235,13 @@ type TreeWalkRuntimeTest () =
         AssertErrorTypesMatch sources expected
 
     [<TestMethod>]
-    member this.VariableDeclarationTest () =
+    member this.VariableTest () =
         let sources = [
             "var peopleAmount = 14; peopleAmount + 1; peopleAmount * 1; 1024 * 2;"
             "var boys = \"boys\"; boys + \" and girls\";"
             "var hello = (1996 + 1 - 1 + 2 - 2) * (1024 / 1024); hello;"
             "var hello = 2048; var hello = 2019; var hello = 2024;"
+            "var goodbye = 1234; goodbye = goodbye + 1; goodbye = goodbye + 1;"
         ]
 
         let expected: EvaluationResult list list = [  
@@ -242,6 +249,23 @@ type TreeWalkRuntimeTest () =
             [Ok (String "boys"); Ok (String "boys and girls");]
             [Ok (Double 1996.0); Ok (Double 1996.0)]
             [Ok (Double 2048.0); Ok (Double 2019.0); Ok (Double 2024.0)]
+            [Ok (Double 1234.0); Ok (Double 1235.0); Ok (Double 1236.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
+    [<TestMethod>]
+    member this.VariableErrorsTest () =
+        let sources = [
+            "var peopleAmount = 14; peopleamount + 1;"
+            "var peopleAmount = 14; peopleAmount + \"egg\";"
+            "var peopleAmount = nil; peopleAmount + 1;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok (Double 14.0); Error (UndefinedVariableError "undefined");]
+            [Ok (Double 14.0); Error (ValueCastError "cast");]
+            [Ok Nil; Error (NullReferenceError "cast")]
         ]
 
         AssertDeclarationEvaluationsMatch sources expected

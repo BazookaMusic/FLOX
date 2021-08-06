@@ -247,6 +247,7 @@ let rec ParseMultipleDeclarations (tokens: ScannerToken list) (parsedDeclaration
         match declarationResult with
             | Ok (declaration, rest) -> ParseMultipleDeclarations rest (declaration::parsedDeclarations)
             // skip statements with errors
+            | Error (e, []) -> Error (e, [])
             | Error (e, rest) -> ParseMultipleDeclarations rest parsedDeclarations
     
 

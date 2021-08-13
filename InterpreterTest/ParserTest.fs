@@ -279,6 +279,29 @@ type ParserTest () =
         Assert.AreEqual (empty, actualEmpty)
 
     [<TestMethod>]
+    member this.BlockDeclarationParseTest () =
+        let source = "var a = 0; { var eggman = 23; var eggwoman = \"hello\"; var empty; } print a;";
+
+        let declarations = source |> ParseSource |> UnwrapListOrPanic
+
+        Assert.AreEqual (3, declarations.Length, "Expected 3 declarations")
+
+        let eggman = VariableDeclaration (VarIdentifier "eggman", Some (Expression.Literal (Literal.NUMBER 23.0) ))
+        let eggwoman = VariableDeclaration (VarIdentifier "eggwoman", Some (Expression.Literal (Literal.STRING "hello") ))
+        let empty = VariableDeclaration (VarIdentifier "empty", None )
+
+        let block = StatementDeclaration (Block [eggman; eggwoman; empty])
+
+        let alpha = VariableDeclaration (VarIdentifier "a", Some (Expression.Literal (Literal.NUMBER 0.0) ))
+        let printAlpha = StatementDeclaration (PrintStatement (Expression.Literal (Literal.IDENTIFIER "a") ))
+
+        let expectedDeclarations = [alpha; block; printAlpha] 
+
+        Assert.AreEqual (expectedDeclarations, declarations)
+
+        
+
+    [<TestMethod>]
     member this.MixedDeclarationParseTest () =
         let source = "var eggman = 23; 1 + 2; 12 / 2; var empty;";
 

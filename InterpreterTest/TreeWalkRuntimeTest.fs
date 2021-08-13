@@ -270,6 +270,27 @@ type TreeWalkRuntimeTest () =
 
         AssertDeclarationEvaluationsMatch sources expected
 
+    [<TestMethod>]
+    member this.BlockTest() =
+        let sources = [
+            "var peopleAmount = 14; { var hello = 1; var hello = 2; }"
+            // change in block
+            "var mutableInBlock = 10; { mutableInBlock = mutableInBlock - 1; mutableInBlock = mutableInBlock - 1; } mutableInBlock;"
+            // shadowing
+            "var mutableInBlock = 10; { var mutableInBlock = 1024; mutableInBlock = mutableInBlock - 1; } mutableInBlock;"
+            // shadowning and use existing variable
+            "var mutableInBlock = 10; { var mutableInBlock = mutableInBlock - 1; mutableInBlock = mutableInBlock - 1; } mutableInBlock;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok (Double 14.0); Ok VOID]
+            [Ok (Double 10.0); Ok VOID; Ok (Double 8.0)]
+            [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
+            [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
     // TODOS: 
     // 1) Add tests for a mix of expressions
     // 2) Add better coverage for runtime errors

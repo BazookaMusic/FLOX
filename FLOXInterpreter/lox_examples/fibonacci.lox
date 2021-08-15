@@ -6,7 +6,8 @@
 
 	second = 1;
 
-	while (i <= n)
+        var i = 0;
+	while ((i = i + 1) < n)
 	{
           var temp = first;
           first = second;

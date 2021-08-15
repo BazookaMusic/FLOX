@@ -217,6 +217,45 @@ type TreeWalkRuntimeTest () =
         AssertEvaluationsMatch sources expected
 
     [<TestMethod>]
+    member this.AndOrTest () =
+        let sources = [
+            "false and false"
+            "false and true"
+            "true and false"
+            "true and true"
+            "false or false"
+            "false or true"
+            "true or false"
+            "true or true"
+        ]
+
+        let expected: EvaluationResult list = [
+            Ok (Boolean false)
+            Ok (Boolean false)
+            Ok (Boolean false)
+            Ok (Boolean true)
+            Ok (Boolean false)
+            Ok (Boolean true)
+            Ok (Boolean true)
+            Ok (Boolean true)
+        ]
+
+        AssertEvaluationsMatch sources expected
+
+        let declarations = [
+            // a should remain at 5 due to short circuit
+            "var a = 5; var b = false and (a = 6 and false); a;"
+            "var a = 5; var b = true or ((a = 6) and false); a;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok (Double 5.0); Ok (Boolean false); Ok (Double 5.0);]
+            [Ok (Double 5.0); Ok (Boolean true); Ok (Double 5.0);]
+        ]
+
+        AssertDeclarationEvaluationsMatch declarations expected
+
+    [<TestMethod>]
     member this.RuntimeErrorTest () =
         let sources = [
             "5 + \"hello\""

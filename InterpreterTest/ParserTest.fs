@@ -132,6 +132,22 @@ type ParserTest () =
            AssertExpressionTreesEqual nest3 (actualTree)
 
     [<TestMethod>]
+    member this.AndOrParseTest () =
+        let source = "true and false"
+        let trueLiteral = Expression.Literal (Literal.TRUEVAL)
+        let falseLiteral = Expression.Literal (Literal.FALSEVAL)
+        let expectedTree = Expression.BinaryExpression (trueLiteral, BinaryOperator.AND, falseLiteral)
+
+        AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
+
+        let source = "true or false"
+        let trueLiteral = Expression.Literal (Literal.TRUEVAL)
+        let falseLiteral = Expression.Literal (Literal.FALSEVAL)
+        let expectedTree = Expression.BinaryExpression (trueLiteral, BinaryOperator.OR, falseLiteral)
+
+        AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
+
+    [<TestMethod>]
     member this.ComparisonParseTest () =
         let source = "5 > 5"
         let numberLiteral5 = Expression.Literal (Literal.NUMBER 5.0)

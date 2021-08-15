@@ -36,6 +36,20 @@ let DefineVariable (environment: Environment) (identifier:Identifier) (value: FL
             let VarIdentifier (varName) as v = identifier
             dictionary.[varName] <- value
 
+let rec SetVariableValue (environment: Environment) (identifier:Identifier) (value: FLOXValue): bool =
+    match environment with
+    | Environment (dictionary, linked) ->
+        match identifier with
+        | VarIdentifier varName ->
+            let foundVariable = dictionary.ContainsKey(varName)
+            if foundVariable then
+                dictionary.[varName] <- value
+                true
+            else
+                match linked with
+                    | Some env -> SetVariableValue env identifier value
+                    | None -> false
+
 let NewEnvironment (parent: Option<Environment>) =
     Environment (new Dictionary<string,FLOXValue>(), parent)
     

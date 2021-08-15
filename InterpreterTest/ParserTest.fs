@@ -299,6 +299,64 @@ type ParserTest () =
 
         Assert.AreEqual (expectedDeclarations, declarations)
 
+    [<TestMethod>]
+    member this.IfStatementParseTest() =
+        let source = "if (true) 5; else 6;";
+
+        let declarations = source |> ParseSource |> UnwrapListOrPanic
+
+        Assert.AreEqual (1, declarations.Length, "Expected 1 declaration")
+
+        let predicate = Literal Literal.TRUEVAL
+        let trueStatement =  ExpressionStatement (Literal (Literal.NUMBER 5.0))
+        let elseStatement = ExpressionStatement (Literal (Literal.NUMBER 6.0))
+
+        let ifElseStatement = IfStatement (predicate, trueStatement, Some elseStatement)
+
+        let expected = [StatementDeclaration ifElseStatement]
+
+        Assert.AreEqual (expected, declarations)
+
+        let source = "if (true) 5;";
+        
+        let declarations = source |> ParseSource |> UnwrapListOrPanic
+        
+        Assert.AreEqual (1, declarations.Length, "Expected 1 declaration")
+        
+        let predicate = Literal Literal.TRUEVAL
+        let trueStatement =  ExpressionStatement (Literal (Literal.NUMBER 5.0))
+        
+        let ifStatement = IfStatement (predicate, trueStatement, None)
+
+        let expected = [StatementDeclaration ifStatement]
+
+        Assert.AreEqual (expected, declarations)
+
+        // nested if-else
+
+        let source = "if (true) \n if (true) { 5; } else { 6; } else { 7; }";
+        
+        let declarations = source |> ParseSource |> UnwrapListOrPanic
+        
+        Assert.AreEqual (1, declarations.Length, "Expected 1 declaration")
+        
+        let expected = [
+            StatementDeclaration (IfStatement
+                (Literal TRUEVAL,
+                 IfStatement
+                   (Literal TRUEVAL,
+                    Block
+                      [StatementDeclaration (ExpressionStatement (Literal (Literal.NUMBER 5.0)))],
+                    Some
+                      (Block
+                         [StatementDeclaration (ExpressionStatement (Literal (Literal.NUMBER 6.0)))])),
+                 Some
+                   (Block
+                      [StatementDeclaration (ExpressionStatement (Literal (Literal.NUMBER 7.0)))])))
+                  ]
+
+        Assert.AreEqual (expected, declarations)
+
         
 
     [<TestMethod>]

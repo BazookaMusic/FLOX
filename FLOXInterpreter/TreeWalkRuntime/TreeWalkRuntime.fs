@@ -142,8 +142,13 @@ let rec EvaluateExpression (environment: Environment) (expression: Expression): 
 
             match result with
             | Ok v -> 
-                DefineVariable environment  identifier v
-                result
+                let variableWasSet = SetVariableValue environment  identifier v
+
+                let VarIdentifier varName as v = identifier
+                if variableWasSet then
+                    result
+                else
+                    Error (DefaultUndefinedVariableError varName)
             | error -> error
         | Unary (op, expr) -> EvaluateUnary (EvaluateExpression environment) op expr
         | Grouping expr -> EvaluateExpression environment expr
@@ -154,12 +159,40 @@ let rec EvaluateExpression (environment: Environment) (expression: Expression): 
             assert false
             Error (FatalError "Invalid value detected by runtime.")
 
-let EvaluateStatement (environment: Environment) (statement: Statement): EvaluationResult =
-    match statement with
-    | ExpressionStatement expression | PrintStatement expression ->
-        EvaluateExpression environment expression
+let rec EvaluateBlock (parentEnvironment: Environment) (block: Statement): EvaluationResult =
+    let newEnvironment = NewEnvironment (Some parentEnvironment)
+    let Block declarations as b = block
+    List.map (EvaluateDeclaration newEnvironment) declarations |> ignore
+    Ok VOID
 
-let EvaluateDeclaration (environment: Environment) (declaration: Declaration): EvaluationResult =
+and EvaluateStatement (environment: Environment) (statement: Statement): EvaluationResult =
+    match statement with
+    | ExpressionStatement expression ->
+        EvaluateExpression environment expression
+    | PrintStatement expression ->
+        let evalResult = EvaluateExpression environment expression
+
+        match evalResult with
+            | Ok v -> 
+                printf "%s" (StringifyValue v) |> ignore
+                Ok VOID
+            | e -> e
+    | IfStatement (predicate, trueStatement, elseStatement) ->
+        let predicateEvaluation = EvaluateExpression environment predicate
+
+        match predicateEvaluation with
+            | Ok value ->
+                if (IsTruthy value) then
+                    EvaluateStatement environment trueStatement
+                else
+                    match elseStatement with
+                        | Some statement -> EvaluateStatement environment statement
+                        | None -> Ok VOID
+            | error -> error
+        
+    | Block declarations as block -> EvaluateBlock environment block
+
+and EvaluateDeclaration (environment: Environment) (declaration: Declaration): EvaluationResult =
     match declaration with
     | StatementDeclaration statement -> EvaluateStatement environment statement
     | VariableDeclaration (identifier, maybeExpression) ->
@@ -169,10 +202,10 @@ let EvaluateDeclaration (environment: Environment) (declaration: Declaration): E
 
         match value with
         | Ok v -> 
-            DefineVariable environment identifier v
+            DefineVariable environment identifier v |> ignore
             value
         | error -> error
-        
+
 let GlobalEnvironment = NewEnvironment None
 
 let ProgramEvaluate (env: Environment) (declarations: Declaration list): EvaluationResult list =

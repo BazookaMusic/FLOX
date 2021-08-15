@@ -70,7 +70,9 @@ let UnaryOperatorToString (op: UnaryOperator) = match op with
 type Statement = 
     | ExpressionStatement of Expression
     | PrintStatement of Expression
-
-type Declaration = 
-    | StatementDeclaration of Statement
-    | VariableDeclaration of Identifier * Option<Expression>
+    | IfStatement of Expression * Statement * Option<Statement>
+    | Block of Declaration list
+and
+    Declaration = 
+        | StatementDeclaration of Statement
+        | VariableDeclaration of Identifier * Option<Expression>

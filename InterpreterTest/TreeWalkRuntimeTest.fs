@@ -63,7 +63,7 @@ type TreeWalkRuntimeTest () =
     let rec AssertDeclarationEvaluationsMatch (sources: string list) (expected: EvaluationResult list list) =
         let actual = List.map (fun s -> s |> ParseDeclaration |> (List.map (EvaluateDeclaration GlobalEnvironment))) sources
 
-        Assert.AreEqual (sources.Length, expected.Length)
+        Assert.AreEqual (sources.Length, expected.Length, sprintf "Expected number of expected %d and number of actual results %d to match." expected.Length sources.Length)
 
         let actualExpectedPairs = List.zip expected actual
 
@@ -287,6 +287,28 @@ type TreeWalkRuntimeTest () =
             [Ok (Double 10.0); Ok VOID; Ok (Double 8.0)]
             [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
             [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
+    [<TestMethod>]
+    member this.IfTest() =
+        let sources = [
+            "if (true) 1; else 5;"
+            "if (false) 1; else 5;"
+            "var a = true; if (a) 5; else 6;"
+            "if (1 + 2 + 3 + 5 < 1 + 2 + 1000) 1; else 2; "
+            "if (true) print \"hello\";"
+            "if (true) if (false) 1.0; else 2.0; else 3.0;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok (Double 1.0)]
+            [Ok (Double 5.0)]
+            [Ok (Boolean true); Ok (Double 5.0)]
+            [Ok (Double 1.0)]
+            [Ok VOID]
+            [Ok (Double 2.0)]
         ]
 
         AssertDeclarationEvaluationsMatch sources expected

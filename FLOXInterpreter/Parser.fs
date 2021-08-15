@@ -30,6 +30,10 @@ type ParseResult<'T> =
     | Ok of 'T * ScannerToken list
     | Error of Errors list * ScannerToken list
 
+let UnexpectedEOFParser<'a> : ParseResult<'a> =
+    let error = Err (-1, "Unexpected EOF while parsing")
+    Error ([error], [])
+
 let ObjToNumeric (num:obj): double =
     match num with
     | :? System.Int32 -> double (num :?> int)
@@ -71,6 +75,18 @@ let rec ParseUnary (tokens: ScannerToken list): ParseResult<Expression> =
         | Ok (right, rest) -> Ok (Unary (TokenToUnaryOperator operator.Type, right), rest)
         | error -> error 
     | tokens -> ParsePrimary tokens
+
+and ParseGroup (tokens: ScannerToken list): ParseResult<Expression> =
+        match ParseExpression tokens with
+        | Ok (expr, newTail) ->
+            match newTail with
+            | (nh::nt) when nh.Type = RIGHT_PAREN -> Ok (Grouping expr, nt)
+            | (nh::nt) -> 
+                let error = Err (nh.Line, sprintf "Expected ')' after expression but got '%s' instead." nh.Lexeme)
+                Error ([error], nt)
+            | _ -> 
+                UnexpectedEOFParser
+        | error -> error
     
 and ParsePrimary (tokens: ScannerToken list): ParseResult<Expression> =
     match tokens with
@@ -83,17 +99,7 @@ and ParsePrimary (tokens: ScannerToken list): ParseResult<Expression> =
         | TokenType.NIL -> Ok (Literal (Literal.NIL), t)
         | TokenType.IDENTIFIER -> Ok (Literal (Literal.IDENTIFIER h.Lexeme), t)
         | TokenType.LEFT_PAREN ->
-            match ParseExpression t with
-                | Ok (expr, newTail) ->
-                    match newTail with
-                    | (nh::nt) when nh.Type = RIGHT_PAREN -> Ok (Grouping expr, nt)
-                    | (nh::nt) -> 
-                        let error = Err (nh.Line, sprintf "Expected ')' after expression but got '%s' instead." nh.Lexeme)
-                        Error ([error], nt)
-                    | _ -> 
-                        let error = Err (0, "Unexpected end of input")
-                        Error ([error], [])
-                | error -> error
+            ParseGroup t
         | _ -> 
             let error = Err (h.Line, sprintf "Unexpected token while parsing literal '%s'" h.Lexeme)
             Error ([error], [])
@@ -145,19 +151,21 @@ and IsAssignment (tokens: ScannerToken list): bool =
     | (identifier::eq::rest) when identifier.Type = IDENTIFIER && eq.Type = EQUAL -> true
     | _ -> false
 
-and ParseAssignment (tokens: ScannerToken list): ParseResult<Expression> =
-    let (identifier::_::rest) = tokens
-    let expressionResult = ParseExpression rest
+and Assignment (identifier:string) (tokens: ScannerToken list) : ParseResult<Expression> =
+    let expressionResult = ParseExpression tokens
 
     match expressionResult with
-    | Ok (expression, restOfTokens) -> Ok (Expression.Assign (VarIdentifier identifier.Lexeme, expression), restOfTokens)
+    | Ok (expression, restOfTokens) -> Ok (Expression.Assign (VarIdentifier identifier, expression), restOfTokens)
     | error -> error
     
 and ParseExpression (tokens: ScannerToken list): ParseResult<Expression> =
-    if (IsAssignment tokens) then
-        ParseAssignment tokens
-    else
-        ParseEquality tokens
+    let expressionResult = ParseEquality tokens
+
+    match expressionResult with
+    // Assignment
+    | Ok (Expression.Literal (Literal.IDENTIFIER identifier), (h::rest)) when h.Type = EQUAL -> Assignment identifier rest
+    // Equality
+    | _ -> expressionResult
 
 let ParseStatement (tokens: ScannerToken list) (statementConstructor: Expression->Statement): ParseResult<Statement> = 
     match ParseExpression tokens with
@@ -181,8 +189,64 @@ let ParseExpressionStatement (tokens: ScannerToken list): ParseResult<Statement>
 let ParsePrintStatement (tokens: ScannerToken list): ParseResult<Statement> =
     ParseStatement tokens (fun expr -> PrintStatement expr)
 
-let ParseStatementByType (tokens: ScannerToken list): ParseResult<Statement> =
+
+let rec ParseMultipleDeclarations (tokens: ScannerToken list) (parsedDeclarations: Declaration list) (expectedEnd: TokenType): ParseResult<Declaration list> =
     match tokens with
+    | (h::t) when h.Type = expectedEnd ->
+        Ok (List.rev parsedDeclarations, (h::t))
+    | _ ->
+        let declarationResult = ParseDeclaration tokens
+        match declarationResult with
+            | Ok (declaration, rest) -> ParseMultipleDeclarations rest (declaration::parsedDeclarations) expectedEnd
+            // skip statements with errors
+            | Error (e, []) -> Error (e, [])
+            | Error (e, rest) -> ParseMultipleDeclarations rest parsedDeclarations expectedEnd
+
+and ParseBlock (tokens: ScannerToken list): ParseResult<Statement> =
+    let declarationsResult = ParseMultipleDeclarations tokens [] RIGHT_BRACE
+
+    match declarationsResult with
+    | Ok (declarationList, (h::rest)) when h.Type = RIGHT_BRACE -> Ok (Statement.Block declarationList, rest)
+    | Ok (_, (h::rest)) ->
+        let error = Err (h.Line, sprintf "Expected '}' at the end of a block, got '%s' instead." h.Lexeme)
+        Error ([error], h::rest)
+    | Ok (_, []) ->
+        let error = Err (-1, "Unexpected EOF")
+        Error ([error], [])
+    | Error (errors, rest) -> Error (errors, rest)
+
+and ParseIfStatement (tokens: ScannerToken list): ParseResult<Statement> =
+    match tokens with
+    | (h::t) when h.Type = LEFT_PAREN ->
+        let predicateResult = ParseGroup t
+
+        match predicateResult with
+        | Ok (Grouping predicateExpr, rest) -> 
+            let statementResult = ParseStatementByType rest
+
+            match statementResult with
+                | Ok (statement, rest) ->
+                    let elseStatemementResult = match rest with
+                        | (h::t) when h.Type = ELSE ->
+                            Some (ParseStatementByType t)
+                        | _ -> None
+
+                    match elseStatemementResult with
+                        | Some (Error _ as error) -> error
+                        | None -> Ok (IfStatement (predicateExpr, statement, None), rest)
+                        | Some (Ok (elseStatement, afterElse)) -> Ok (IfStatement (predicateExpr, statement, Some elseStatement), afterElse)
+                | error -> error
+        | Error (e, rest) -> Error (e, rest)
+    | (h::t) as li ->
+        let error = Err (h.Line, sprintf "Expected '(' after 'if' but got '%s' instead." h.Lexeme)
+        Error ([error], li)
+    | [] -> 
+        UnexpectedEOFParser
+                
+and ParseStatementByType (tokens: ScannerToken list): ParseResult<Statement> =
+    match tokens with
+    | (h::t) when h.Type = IF -> ParseIfStatement t
+    | (h::t) when h.Type = LEFT_BRACE -> ParseBlock t
     | (h::t) when h.Type = PRINT -> ParsePrintStatement t
     | (h::t) -> ParseExpressionStatement tokens
     | [h] when h.Type = EOF -> 
@@ -192,7 +256,7 @@ let ParseStatementByType (tokens: ScannerToken list): ParseResult<Statement> =
         let error = Err (-1, "This should never happen. Expected tokens.")
         Error ([error], [])
 
-let ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
+and ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
     match tokens with
     | (h1::h2::t) when h1.Type = IDENTIFIER && h2.Type = EQUAL ->
         let expressionResult = ParseExpression t
@@ -220,12 +284,12 @@ let ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
         let error = Err (h1.Line, "Unexpected EOF after 'var'.")
         Error ([error], [])
     | _ -> 
-        let error = Err (-1, "Unexpected end of input.")
-        Error ([error], [])
+        UnexpectedEOFParser<Declaration>
     
-let ParseDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
+and ParseDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
     match tokens with
     | (h::t) when h.Type = VAR -> ParseVariableDeclaration t
+   // | (h::t) when h.Type = LEFT_BRACE -> 
     | (h::t) -> 
         let statement = ParseStatementByType tokens
         match statement with
@@ -237,20 +301,7 @@ let ParseDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
     | [] ->
         let error = Err (-1, "This should never happen. Expected tokens.")
         Error ([error], [])
-
-let rec ParseMultipleDeclarations (tokens: ScannerToken list) (parsedDeclarations: Declaration list): ParseResult<Declaration list> =
-    match tokens with
-    | (h::t) when h.Type = EOF ->
-        Ok (List.rev parsedDeclarations, (h::t))
-    | _ ->
-        let declarationResult = ParseDeclaration tokens
-        match declarationResult with
-            | Ok (declaration, rest) -> ParseMultipleDeclarations rest (declaration::parsedDeclarations)
-            // skip statements with errors
-            | Error (e, []) -> Error (e, [])
-            | Error (e, rest) -> ParseMultipleDeclarations rest parsedDeclarations
     
-
 let ParseProgram (tokens: List<ScannerToken>): ParseResult<Declaration list> =
     let tokensAsList = Seq.toList tokens
     if (tokens.Count = 1) then
@@ -263,7 +314,7 @@ let ParseProgram (tokens: List<ScannerToken>): ParseResult<Declaration list> =
             assert false
             Error ([error], [])
     else
-        ParseMultipleDeclarations (tokensAsList) []
+        ParseMultipleDeclarations (tokensAsList) [] EOF
 
 
 

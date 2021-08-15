@@ -352,6 +352,20 @@ type TreeWalkRuntimeTest () =
 
         AssertDeclarationEvaluationsMatch sources expected
 
+    [<TestMethod>]
+    member this.WhileTest() =
+        let sources = [
+            "var a = 0; while (a < 100) { a = a + 1; } a;"
+            "var a = 0; while (false) { a = a + 1; } a;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok (Double 0.0); Ok VOID; Ok (Double 100.0)]
+            [Ok (Double 0.0); Ok VOID; Ok (Double 0.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
     // TODOS: 
     // 1) Add tests for a mix of expressions
     // 2) Add better coverage for runtime errors

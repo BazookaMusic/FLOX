@@ -373,7 +373,44 @@ type ParserTest () =
 
         Assert.AreEqual (expected, declarations)
 
+    [<TestMethod>]
+    member this.WhileStatementParseTest() =
+        let source = "while (true) 5;";
+
+        let declarations = source |> ParseSource |> UnwrapListOrPanic
+
+        Assert.AreEqual (1, declarations.Length, "Expected 1 declaration")
+
+        let predicate = Literal Literal.TRUEVAL
+        let statement =  ExpressionStatement (Literal (Literal.NUMBER 5.0))
+
+        let whileStatement = WhileStatement (predicate, statement)
+
+        let expected = [StatementDeclaration whileStatement]
+
+        Assert.AreEqual (expected, declarations)
+
+        let source = "var a = 0; while (a < 5) { a = a + 1;} a;";
         
+        let declarations = source |> ParseSource |> UnwrapListOrPanic
+        
+        Assert.AreEqual (3, declarations.Length, "Expected 1 declaration")
+        
+        let expected = [
+            VariableDeclaration (VarIdentifier "a", Some (Literal (Literal.NUMBER 0.0))); 
+            StatementDeclaration (WhileStatement
+               (BinaryExpression (Literal (Literal.IDENTIFIER "a"), BinaryOperator.LESS, Literal (Literal.NUMBER 5.0)),
+                Block
+                  [StatementDeclaration
+                     (ExpressionStatement
+                        (Assign
+                           (VarIdentifier "a",
+                            BinaryExpression
+                              (Literal (Literal.IDENTIFIER "a"), BinaryOperator.PLUS, Literal (Literal.NUMBER 1.0)))))]));
+            StatementDeclaration (ExpressionStatement (Literal (Literal.IDENTIFIER "a")))
+            ]
+
+        Assert.AreEqual (expected, declarations)
 
     [<TestMethod>]
     member this.MixedDeclarationParseTest () =

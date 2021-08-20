@@ -58,7 +58,6 @@ let AndThen<'T, 'R> (v: ParseResult<'T>) (f: 'T * ScannerToken list -> ParseResu
 
 let (.>>.) = AndThen
 
-
 let ObjToNumeric (num:obj): double =
     match num with
     | :? System.Int32 -> double (num :?> int)

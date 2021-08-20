@@ -369,7 +369,7 @@ type TreeWalkRuntimeTest () =
     [<TestMethod>]
     member this.ForTest() =
         let sources = [
-            "for (var a = 0; a < 1000000; a = a + 1;) 5; a;"
+            "for (var a = 0; a < 100; a = a + 1;) 5; a;"
             "for (var a = 0; a < 0; a = a + 1;) 5; a;"
         ]
 

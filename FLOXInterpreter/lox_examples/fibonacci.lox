@@ -1,14 +1,20 @@
 ﻿fun fibonacci(n) {
-	i = 0;
+        if (n == 0)
+          return 0;
 
-	acc = 0;
+	first = 0;
 
-	while (i < n)
+	second = 1;
+
+        var i = 0;
+	while ((i = i + 1) < n)
 	{
-		acc = acc + i;
+          var temp = first;
+          first = second;
+          second = temp + second;
 	}
 	
-	return acc;
+	return second;
 }
 
 fun main()

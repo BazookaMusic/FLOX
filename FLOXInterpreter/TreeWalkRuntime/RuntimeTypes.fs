@@ -2,17 +2,19 @@
 
 open RuntimeErrors
 
+[<Struct>]
 type FLOXValue =
-    | Object of obj
+    | Object of o:obj
     | Nil
-    | String of string
-    | Boolean of bool
-    | Double of double
+    | String of s:string
+    | Boolean of b:bool
+    | Double of d: double
     | VOID
 
+[<Struct>]
 type EvaluationResult = 
-    | Ok of FLOXValue
-    | Error of RuntimeError
+    | Ok of v: FLOXValue
+    | Error of e: RuntimeError
 
 let StringifyValue (v: FLOXValue) : string =
     match v with

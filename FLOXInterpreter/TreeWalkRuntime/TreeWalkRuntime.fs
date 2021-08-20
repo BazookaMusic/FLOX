@@ -85,7 +85,8 @@ let IsTruthy (value: FLOXValue): bool =
             | _ -> false
     |   Nil -> false
     |   Boolean b -> b
-    | _ -> true
+    |   VOID -> false
+    |   _ -> true
 
 let PlusImplementation (left: EvaluationResult) (right: EvaluationResult) =
     match (left, right) with
@@ -129,6 +130,33 @@ let EvaluateBinary (evaluationFn: Expression -> EvaluationResult) (left: Express
         | BinaryOperator.GREATEREQ ->  CompareNumericValues (evaluationFn left) (evaluationFn right) (>=)
         | BinaryOperator.EQ -> AreEqual (evaluationFn left) (evaluationFn right)
         | BinaryOperator.NEQ -> AreEqual (evaluationFn left) (evaluationFn right) |> InvertBoolean
+        | BinaryOperator.OR ->
+            let left = evaluationFn left
+
+            match left with
+                | Ok v ->
+                    if (IsTruthy v) then
+                        Ok (Boolean true)
+                    else
+                        let right = evaluationFn right
+                        match right with
+                            | Ok r -> Ok (Boolean (IsTruthy r))
+                            | error -> error
+                | error -> error
+        | BinaryOperator.AND ->
+            let left = evaluationFn left
+
+            match left with
+                | Ok v ->
+                    if (not (IsTruthy v)) then
+                        Ok (Boolean false)
+                    else
+                        let right = evaluationFn right
+                        match right with
+                            | Ok r -> Ok (Boolean (IsTruthy r))
+                            | error -> error
+                | error -> error
+
         | BinaryOperator.INVALID -> 
             // should never happen
             assert false
@@ -158,6 +186,48 @@ let rec EvaluateExpression (environment: Environment) (expression: Expression): 
             // should be unreachable
             assert false
             Error (FatalError "Invalid value detected by runtime.")
+
+let rec EvaluateWhile environment predicateExpression statement evaluationFn =
+    let predicateEvaluation = EvaluateExpression environment predicateExpression
+    match predicateEvaluation with
+        | Ok value ->
+            if (not (IsTruthy value)) then
+                Ok VOID
+            else
+                evaluationFn environment statement |> ignore
+                EvaluateWhile environment predicateExpression statement evaluationFn
+        | error -> error
+
+let rec EvaluateForImpl environment declaration predicateExpression final statement statementEvaluationFn =
+    let predicateEvaluation = EvaluateExpression environment predicateExpression
+    match predicateEvaluation with
+        | Ok value ->
+            if (not (IsTruthy value)) then
+                Ok VOID
+            else
+                statementEvaluationFn environment statement |> ignore
+                statementEvaluationFn environment final |> ignore
+
+                EvaluateForImpl environment declaration predicateExpression final statement statementEvaluationFn
+        | error -> error
+
+let EvaluateFor (environment: Environment) (declaration: Option<Declaration>) (predicateExpression: Option<Statement>) (final: Option<Statement>) (statement: Statement) (statementEvaluationFn: Environment -> Statement -> EvaluationResult) (declarationEvaluationFn: Environment -> Declaration -> EvaluationResult) =
+    let _ = 
+        match declaration with 
+            | Some decl -> declarationEvaluationFn environment decl
+            | None -> Ok VOID
+
+    let actualFinal = 
+        match final with 
+            | Some stmt -> stmt
+            | None -> ExpressionStatement (Expression.Empty)
+
+    let conditionExpression = 
+        match predicateExpression with
+            | Some (ExpressionStatement expr) -> expr
+            | _ -> Expression.Literal (Literal.TRUEVAL)
+
+    EvaluateForImpl environment declaration conditionExpression actualFinal statement statementEvaluationFn
 
 let rec EvaluateBlock (parentEnvironment: Environment) (block: Statement): EvaluationResult =
     let newEnvironment = NewEnvironment (Some parentEnvironment)
@@ -189,7 +259,10 @@ and EvaluateStatement (environment: Environment) (statement: Statement): Evaluat
                         | Some statement -> EvaluateStatement environment statement
                         | None -> Ok VOID
             | error -> error
-        
+    | WhileStatement (predicate, statement) ->
+        EvaluateWhile environment predicate statement EvaluateStatement
+    | ForStatement (declaration, condition, final, statement) ->
+       EvaluateFor environment declaration condition final statement EvaluateStatement EvaluateDeclaration
     | Block declarations as block -> EvaluateBlock environment block
 
 and EvaluateDeclaration (environment: Environment) (declaration: Declaration): EvaluationResult =

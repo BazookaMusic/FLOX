@@ -25,6 +25,13 @@ let rec TreeToString (root:Expression): string =
         | Empty -> ""
         | Invalid -> "Invalid"
 
+let rec private CountFollowingOccurencesImpl (tokenType: TokenType) (tokens: ScannerToken list) (acc:int) =
+    match tokens with
+        | (h::t) when h.Type = tokenType -> CountFollowingOccurencesImpl tokenType t (acc + 1)
+        | _ -> acc
+
+let CountFollowingOccurences (tokenType: TokenType) (tokens: ScannerToken list) =
+    CountFollowingOccurencesImpl tokenType tokens 0
 
 type ParseResult<'T> =
     | Ok of 'T * ScannerToken list
@@ -33,6 +40,24 @@ type ParseResult<'T> =
 let UnexpectedEOFParser<'a> : ParseResult<'a> =
     let error = Err (-1, "Unexpected EOF while parsing")
     Error ([error], [])
+
+let ParseToken (tokenType: TokenType) (tokens: ScannerToken list) (lexeme: string) : ParseResult<bool> =
+    match tokens with
+        | (first::rest) when first.Type = tokenType -> Ok (true, rest)
+        | (first::rest) -> 
+            let error = Err (first.Line, sprintf "Expected '%s' but got '%s' instead." lexeme first.Lexeme)
+            Error ([error], tokens)
+        | [] ->
+            UnexpectedEOFParser
+
+let AndThen<'T, 'R> (v: ParseResult<'T>) (f: 'T * ScannerToken list -> ParseResult<'R>) : ParseResult<'R> =
+    match v with
+        | Ok (ok, rest) -> 
+            f (ok, rest)
+        | Error (e, rest) -> Error (e, rest)
+
+let (.>>.) = AndThen
+
 
 let ObjToNumeric (num:obj): double =
     match num with
@@ -128,17 +153,39 @@ and ParseTerm (tokens: ScannerToken list): ParseResult<Expression> =
 
         ParseMultipleOfSameType rest ParseFactor expr  termTokens "term"
     | _ -> parseFactor
-    
-and ParseComparison (tokens: ScannerToken list): ParseResult<Expression> = 
+
+and ParseAND (tokens: ScannerToken list): ParseResult<Expression> =
     let parseTerm = ParseTerm tokens
     match parseTerm with
+    | Ok (expr, rest) -> 
+        let termTokens (token: ScannerToken) = match token.Type with
+        | TokenType.AND -> true
+        | _ -> false
+
+        ParseMultipleOfSameType rest ParseAND expr  termTokens "and"
+    | _ -> parseTerm
+
+and ParseOR (tokens: ScannerToken list): ParseResult<Expression> =
+    let parseAND = ParseAND tokens
+    match parseAND with
+    | Ok (expr, rest) -> 
+        let restOfTokens (token: ScannerToken) = match token.Type with
+        | TokenType.OR -> true
+        | _ -> false
+
+        ParseMultipleOfSameType rest ParseOR expr restOfTokens "or"
+    | _ -> parseAND
+    
+and ParseComparison (tokens: ScannerToken list): ParseResult<Expression> = 
+    let parseOR = ParseOR tokens
+    match parseOR with
     | Ok (expr, rest) -> 
         let comparisonTokens (token: ScannerToken) = match token.Type with
             | TokenType.LESS | TokenType.LESS_EQUAL | TokenType.GREATER | TokenType.GREATER_EQUAL -> true
             | _ -> false
 
         ParseMultipleOfSameType rest ParseTerm expr comparisonTokens "comparison"
-    | _ -> parseTerm
+    | _ -> parseOR
 
 and ParseEquality (tokens: ScannerToken list): ParseResult<Expression> = 
     let parseComp = ParseComparison tokens
@@ -188,7 +235,6 @@ let ParseExpressionStatement (tokens: ScannerToken list): ParseResult<Statement>
 
 let ParsePrintStatement (tokens: ScannerToken list): ParseResult<Statement> =
     ParseStatement tokens (fun expr -> PrintStatement expr)
-
 
 let rec ParseMultipleDeclarations (tokens: ScannerToken list) (parsedDeclarations: Declaration list) (expectedEnd: TokenType): ParseResult<Declaration list> =
     match tokens with
@@ -242,9 +288,83 @@ and ParseIfStatement (tokens: ScannerToken list): ParseResult<Statement> =
         Error ([error], li)
     | [] -> 
         UnexpectedEOFParser
-                
+
+and ParseWhileStatement (tokens: ScannerToken list): ParseResult<Statement> =
+    match tokens with
+    | (h::t) when h.Type = LEFT_PAREN ->
+        let predicateResult = ParseGroup t
+
+        match predicateResult with
+        | Ok (Grouping predicateExpr, rest) -> 
+            let statementResult = ParseStatementByType rest
+
+            match statementResult with
+                | Ok (statement, rest) ->
+                    Ok (WhileStatement (predicateExpr, statement), rest)
+                | error -> error
+        | Error (e, rest) -> Error (e, rest)
+    | (h::t) as li ->
+        let error = Err (h.Line, sprintf "Expected '(' after 'while' but got '%s' instead." h.Lexeme)
+        Error ([error], li)
+    | [] ->
+        UnexpectedEOFParser
+
+and ParseFirstForStatement (tokens: ScannerToken list) =
+    let declaration = ParseDeclaration tokens
+
+    match declaration with
+        | Ok (StatementDeclaration stmt, afterStmt) ->
+            match stmt with
+                | ExpressionStatement s -> declaration
+                | _ ->
+                    let token = List.head tokens
+                    let error = Err (token.Line, "Expected statement")
+                    Error ([error], afterStmt)
+        | other -> other
+
+and ParseSecondStatement (tokens: ScannerToken list) =
+    ParseExpressionStatement tokens
+
+and ParseForStatement (tokens: ScannerToken list) =
+    let token = ParseToken LEFT_PAREN tokens "("
+    
+    AndThen token (fun (_, afterParsedToken) ->
+        let firstFor = match afterParsedToken with
+            |  (h::t) when h.Type = SEMICOLON -> Ok (StatementDeclaration (ExpressionStatement Empty), t)
+            | e -> ParseFirstForStatement afterParsedToken
+
+        AndThen firstFor (fun (firstDeclaration, afterFirstDeclaration) ->
+            let conditionExpr = match afterFirstDeclaration with
+                                    | (h::t) when h.Type = SEMICOLON -> Ok (ExpressionStatement Empty, t)
+                                    | _ -> ParseExpressionStatement afterFirstDeclaration
+
+            AndThen conditionExpr (fun (conditionExpression, afterConditionExpression) ->
+                let finalStatementExpr = match afterConditionExpression with
+                                                | (h::t) when h.Type = SEMICOLON -> Ok (ExpressionStatement Empty, t)
+                                                | _ -> ParseExpressionStatement afterConditionExpression
+
+                AndThen finalStatementExpr (fun (finalStatementExpr, afterFinalCondition) ->
+                    let rightParen = ParseToken RIGHT_PAREN afterFinalCondition ")"
+                    AndThen rightParen (fun (_, afterRightParen) ->
+                        let body = ParseStatementByType afterRightParen
+                        
+                        AndThen body (fun (bodyStatement, afterBody) ->
+                            let firstDeclarationOption = if firstDeclaration = StatementDeclaration (ExpressionStatement Empty) then None else Some firstDeclaration
+                            let conditionOption = if conditionExpression = ExpressionStatement Empty then None else Some conditionExpression
+                            let finalStatementOption = if finalStatementExpr = ExpressionStatement Empty then None else Some finalStatementExpr
+                        
+                            Ok (ForStatement (firstDeclarationOption, conditionOption, finalStatementOption, bodyStatement), afterBody)
+                        )
+                    )
+                )
+            )
+        )
+    )
+
 and ParseStatementByType (tokens: ScannerToken list): ParseResult<Statement> =
     match tokens with
+    | (h::t) when h.Type = FOR -> ParseForStatement t
+    | (h::t) when h.Type = WHILE -> ParseWhileStatement t
     | (h::t) when h.Type = IF -> ParseIfStatement t
     | (h::t) when h.Type = LEFT_BRACE -> ParseBlock t
     | (h::t) when h.Type = PRINT -> ParsePrintStatement t

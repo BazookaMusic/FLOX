@@ -2,10 +2,16 @@
 
 open Tokens
 
-type Literal = NUMBER of double | STRING of string | TRUEVAL | FALSEVAL | NIL | IDENTIFIER of string
-type BinaryOperator = EQ | NEQ | LESS | LESSEQ | GREATER | GREATEREQ | PLUS  | MINUS  | MULT | DIV | INVALID
+[<Struct>]
+type Literal = NUMBER of d:double | STRING of s: string | TRUEVAL | FALSEVAL | NIL | IDENTIFIER of id: string
+
+[<Struct>]
+type BinaryOperator = EQ | NEQ | LESS | LESSEQ | GREATER | GREATEREQ | PLUS  | MINUS  | MULT | DIV | INVALID | AND | OR
+
+[<Struct>]
 type UnaryOperator = MINUS | BANG | INVALID
 
+[<Struct>]
 type Identifier = VarIdentifier of string
 
 let TokenToBinaryOperator (token: TokenType)  = match token with
@@ -19,6 +25,8 @@ let TokenToBinaryOperator (token: TokenType)  = match token with
     | TokenType.MINUS -> BinaryOperator.MINUS
     | TokenType.STAR -> BinaryOperator.MULT
     | TokenType.SLASH -> BinaryOperator.DIV
+    | TokenType.AND -> BinaryOperator.AND
+    | TokenType.OR -> BinaryOperator.OR
     | _ ->
         // this should never happen
         assert false
@@ -71,6 +79,8 @@ type Statement =
     | ExpressionStatement of Expression
     | PrintStatement of Expression
     | IfStatement of Expression * Statement * Option<Statement>
+    | WhileStatement of Expression * Statement
+    | ForStatement of Option<Declaration> * Option<Statement> * Option<Statement> * Statement
     | Block of Declaration list
 and
     Declaration = 

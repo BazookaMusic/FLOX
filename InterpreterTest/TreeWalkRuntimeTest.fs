@@ -366,6 +366,20 @@ type TreeWalkRuntimeTest () =
 
         AssertDeclarationEvaluationsMatch sources expected
 
+    [<TestMethod>]
+    member this.ForTest() =
+        let sources = [
+            "for (var a = 0; a < 1000000; a = a + 1;) 5; a;"
+            "for (var a = 0; a < 0; a = a + 1;) 5; a;"
+        ]
+
+        let expected: EvaluationResult list list = [  
+            [Ok VOID; Ok (Double 100.0)]
+            [Ok VOID; Ok (Double 0.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
     // TODOS: 
     // 1) Add tests for a mix of expressions
     // 2) Add better coverage for runtime errors

@@ -34,6 +34,7 @@ type ParserTest () =
 
         statements
 
+
     let AddBoilerPlate source = source 
     let ParsingPipeline source = source |> ScanTokens |> ParseProgram
     let ParsingPipelineExpression source = source |> ScanTokens |> Seq.toList |> ParseExpression |> UnwrapExpressionOrPanic
@@ -41,6 +42,24 @@ type ParserTest () =
     let ParseExpressionSource (source: string) = source |> AddBoilerPlate |> ParsingPipelineExpression
     let ParseSource (source: string) = source |> AddBoilerPlate |> ParsingPipeline
     let ParseSourceRaw source = source |> ParsingPipeline
+
+    let rec ParsedSourceEqualsExpectedTree sources expected =
+        match (sources, expected) with
+            | (s::st, e::et) ->
+                let parsedSource = ParseSource s
+                match parsedSource with
+                    | Ok (declarations, [h]) when h.Type = EOF -> Assert.AreEqual (declarations, e)
+                    | Ok (declarations, (h::t)) ->
+                        Assert.Fail (sprintf "Non-parsed tokens: %A" (h::t))
+                    | Ok (declarations, []) ->
+                        Assert.Fail ("Unexpected end of tokens")
+                    | e -> Assert.AreEqual (parsedSource, expected)
+                ParsedSourceEqualsExpectedTree st et
+            | ([], (e::et)) ->
+                Assert.Fail (sprintf "Found no source for %A" e)
+            | ((s::st), ([])) ->
+                Assert.Fail (sprintf "Found no expected value for for '%s'" s)
+            | ([], []) -> ()
 
     [<TestMethod>]
     member this.LiteralParseTest () =
@@ -411,6 +430,35 @@ type ParserTest () =
             ]
 
         Assert.AreEqual (expected, declarations)
+
+    [<TestMethod>]
+    member this.ForStatementParseTest() =
+        let sources = [
+            "for (;;;) 5;"
+            "for (var a = 5;;;) 5;"
+            "for (;5 < 5;;) 5;"
+            "for (;;a = 5;) 5;"
+            "for (var a = 5;5 < 5; a = 5;) 5;"
+            // nested for
+            "for (var a = 5;5 < 5; a = 5;) for (var a = 5;5 < 5; a = 5;) 5;"
+        ]
+        
+        let fiveLiteral = Expression.Literal (Literal.NUMBER 5.0)
+
+        let defaultVarDecl = Some (VariableDeclaration (VarIdentifier "a", Some (Expression.Literal (Literal.NUMBER 5.0))))
+        let defaultCond = Some (ExpressionStatement (BinaryExpression (fiveLiteral, BinaryOperator.LESS, fiveLiteral)))
+        let defaultFinal = Some (ExpressionStatement (Assign (VarIdentifier "a", fiveLiteral)))
+        let fullFor = ForStatement (defaultVarDecl, defaultCond, defaultFinal, ExpressionStatement fiveLiteral)
+        let expectedValues = [
+            [StatementDeclaration (ForStatement (None, None, None, ExpressionStatement fiveLiteral))]
+            [StatementDeclaration (ForStatement (defaultVarDecl, None, None, ExpressionStatement fiveLiteral))]
+            [StatementDeclaration (ForStatement (None, defaultCond, None, ExpressionStatement fiveLiteral))]
+            [StatementDeclaration (ForStatement (None, None, defaultFinal, ExpressionStatement fiveLiteral))]
+            [StatementDeclaration (ForStatement (defaultVarDecl, defaultCond, defaultFinal, ExpressionStatement fiveLiteral))]
+            [StatementDeclaration (ForStatement (defaultVarDecl, defaultCond, defaultFinal, fullFor))]
+        ]
+
+        ParsedSourceEqualsExpectedTree sources expectedValues
 
     [<TestMethod>]
     member this.MixedDeclarationParseTest () =

@@ -18,4 +18,10 @@ let rec AssertExpressionTreesEqual (expr1: Expression) (expr2: Expression) =
             AssertExpressionTreesEqual u1 u2
         | (Literal lit1, Literal lit2) ->
             Assert.AreEqual (lit1, lit2)
+        | (Call (expr, argList), Call (expr2, argList2)) -> 
+            AssertExpressionTreesEqual expr expr2
+
+            let zippedArguments = List.zip argList argList2
+
+            List.iter (fun (arg1, arg2) -> AssertExpressionTreesEqual arg1 arg2) zippedArguments
         | (a,b) -> Assert.Fail (sprintf "'%A' and '%A' are not equal as expected." a b)

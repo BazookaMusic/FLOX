@@ -44,11 +44,15 @@ type Expression =
     | BinaryExpression of Expression * BinaryOperator * Expression
     | Grouping of Expression
     | Unary of UnaryOperator * Expression
+    | Call of Expression * ArgumentList
     | Literal of Literal
     | Assign of Identifier * Expression
     // no source should be valid
     | Empty
     | Invalid
+
+and
+    ArgumentList = Expression list
 
 let LiteralToString (literal: Literal): string = match literal with
     | NUMBER x -> x.ToString()
@@ -56,6 +60,7 @@ let LiteralToString (literal: Literal): string = match literal with
     | TRUEVAL -> "true"
     | FALSEVAL -> "false"
     | NIL -> "nil"
+    | IDENTIFIER id -> id
 
 let BinaryOperatorToString (op:BinaryOperator) = match op with
     | EQ -> "=="

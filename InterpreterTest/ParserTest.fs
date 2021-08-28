@@ -100,6 +100,27 @@ type ParserTest () =
         AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
 
     [<TestMethod>]
+    member this.FunctionCallParseTest () =
+        let source = "ignite()"
+
+        let expectedTree = Expression.Call (Expression.Literal (Literal.IDENTIFIER "ignite"), [])
+
+        AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
+
+        let source = "transmogrify(\"gold\", \"silver\", 1024.0)"
+
+        let expected = Call (Literal (Literal.IDENTIFIER "transmogrify"), [Literal (Literal.STRING "gold"); Literal (Literal.STRING "silver"); Literal (Literal.NUMBER 1024.0)])
+        let actual = ParseExpressionSource source
+        AssertExpressionTreesEqual expected actual
+
+        let complexSource = "foo(4 * pow(4,2), \"foo\" + barfun())"
+        let stringFun = BinaryExpression (Literal (Literal.STRING "foo"), BinaryOperator.PLUS, Call (Literal (Literal.IDENTIFIER "barfun"), []))
+        let numFun = BinaryExpression (Literal (Literal.NUMBER 4.0), BinaryOperator.MULT, Call (Literal (Literal.IDENTIFIER "pow"), [Literal (Literal.NUMBER 4.0); Literal (Literal.NUMBER 2.0)]))
+        let expected = Call (Literal (Literal.IDENTIFIER "foo"), [numFun ; stringFun])
+
+        AssertExpressionTreesEqual expected (ParseExpressionSource complexSource)
+
+    [<TestMethod>]
     member this.UnaryParseTest () =
         let source = "-5"
 

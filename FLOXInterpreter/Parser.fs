@@ -24,6 +24,8 @@ let rec TreeToString (root:Expression): string =
         | Grouping expr -> sprintf "( %s )"  (TreeToString expr)
         | Empty -> ""
         | Invalid -> "Invalid"
+        | Assign (VarIdentifier v, expr) -> sprintf "(Assign (%s) (%s))" v (TreeToString expr)
+        | other -> "Unknown"
 
 let rec private CountFollowingOccurencesImpl (tokenType: TokenType) (tokens: ScannerToken list) (acc:int) =
     match tokens with
@@ -56,7 +58,7 @@ let AndThen<'T, 'R> (v: ParseResult<'T>) (f: 'T * ScannerToken list -> ParseResu
             f (ok, rest)
         | Error (e, rest) -> Error (e, rest)
 
-let (.>>.) = AndThen
+let (.>>.) item next = AndThen item next
 
 let ObjToNumeric (num:obj): double =
     match num with
@@ -98,8 +100,42 @@ let rec ParseUnary (tokens: ScannerToken list): ParseResult<Expression> =
         match (ParseUnary t) with
         | Ok (right, rest) -> Ok (Unary (TokenToUnaryOperator operator.Type, right), rest)
         | error -> error 
-    | tokens -> ParsePrimary tokens
+    | tokens -> ParseCall tokens
 
+and ParseArguments (tokens: ScannerToken list) (arguments: Expression list): ParseResult<Expression list> =
+    match tokens with
+        | (h::t) when h.Type = RIGHT_PAREN ->
+            Ok ((List.rev arguments), t)
+        | _ ->
+            let expr = ParseExpression tokens
+
+            let next = fun (expr, (rest: ScannerToken list)) ->
+                match rest with
+                    | (h::t) when h.Type = COMMA ->
+                        ParseArguments t (expr::arguments)
+                    | (h::t) when h.Type = RIGHT_PAREN ->
+                        Ok ((List.rev (expr::arguments)), t)
+                    | (h::t) -> 
+                        let err = Err (h.Line, sprintf "Expected ',' or ')' at function call but got '%s' instead'" h.Lexeme)
+                        Error ([err], t)
+                    | _ -> UnexpectedEOFParser
+
+            expr .>>. next
+
+and ParseCall (tokens: ScannerToken list): ParseResult<Expression> =
+    let primary = ParsePrimary tokens
+
+    primary .>>. 
+        fun (prim, rest) ->
+            match rest with
+                | (h::t) when h.Type = LEFT_PAREN ->
+                    let arguments = ParseArguments t []
+
+                    arguments .>>. 
+                        (fun (args, rest) ->
+                            Ok (Call (prim, args), rest))
+                | _ -> primary
+                
 and ParseGroup (tokens: ScannerToken list): ParseResult<Expression> =
         match ParseExpression tokens with
         | Ok (expr, newTail) ->
@@ -404,6 +440,9 @@ and ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
         Error ([error], [])
     | _ -> 
         UnexpectedEOFParser<Declaration>
+
+//and ParseFunction (tokens: ScannerToken list): ParseResult<Declaration> =
+    
     
 and ParseDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
     match tokens with

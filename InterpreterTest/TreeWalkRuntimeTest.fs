@@ -45,7 +45,7 @@ type TreeWalkRuntimeTest () =
           | _, (_::xs') -> getn (n - 1) xs'
           | _, []       -> invalidArg "n" "n is too large"
 
-    let rec AssertEvaluationsMatch (sources: string list) (expected: EvaluationResult list) =
+    let rec AssertEvaluationsMatch (sources: string list) (expected: EvaluationResult<FLOXValue> list) =
         let actual = List.map (fun s -> s |> ParseSource |> (EvaluateExpression GlobalEnvironment)) sources
 
         Assert.AreEqual (sources.Length, expected.Length)
@@ -60,17 +60,17 @@ type TreeWalkRuntimeTest () =
 
         List.iter equalityFun actualExpectedPairs
 
-    let rec AssertDeclarationEvaluationsMatch (sources: string list) (expected: EvaluationResult list list) =
+    let rec AssertDeclarationEvaluationsMatch (sources: string list) (expected: EvaluationResult<FLOXValue> list list) =
         let actual = List.map (fun s -> s |> ParseDeclaration |> (List.map (EvaluateDeclaration GlobalEnvironment))) sources
 
         Assert.AreEqual (sources.Length, expected.Length, sprintf "Expected number of expected %d and number of actual results %d to match." expected.Length sources.Length)
 
         let actualExpectedPairs = List.zip expected actual
 
-        let equalityFun (xs: EvaluationResult list, ys: EvaluationResult list) =
+        let equalityFun (xs: EvaluationResult<FLOXValue> list, ys: EvaluationResult<FLOXValue> list) =
             Assert.AreEqual (xs.Length, ys.Length, sprintf "Different no of actual results then expected for expected:'%A' and actual: '%A'" ys xs)
 
-            let innerEqualityFun (x: EvaluationResult list, y: EvaluationResult list) =
+            let innerEqualityFun (x: EvaluationResult<FLOXValue> list, y: EvaluationResult<FLOXValue> list) =
                 Assert.AreEqual (x.Length, y.Length, sprintf "Different no of actual results then expected for expected:'%A' and actual: '%A'" y x)
 
                 let innerActualExpectedPairs = List.zip y x
@@ -87,7 +87,7 @@ type TreeWalkRuntimeTest () =
         
         List.iter equalityFun actualExpectedPairs
 
-    let rec AssertErrorTypesMatch (sources: string list) (expected: EvaluationResult list) =
+    let rec AssertErrorTypesMatch (sources: string list) (expected: EvaluationResult<FLOXValue> list) =
         let actual = List.map (fun s -> s |> ParseSource |> (EvaluateExpression GlobalEnvironment)) sources
 
         Assert.AreEqual (sources.Length, expected.Length)
@@ -120,7 +120,7 @@ type TreeWalkRuntimeTest () =
             "nil"
         ]
 
-        let expected: EvaluationResult list = [
+        let expected: EvaluationResult<FLOXValue> list = [
             Ok (Double 5.0)
             Ok (String "hello")
             Ok (Boolean true)
@@ -143,7 +143,7 @@ type TreeWalkRuntimeTest () =
             "10*(10.5 + 10.5) + 10/2 + ((3+2)*5 + (1.5 + 1.5) * 2)"
         ]
 
-        let expected: EvaluationResult list = [
+        let expected: EvaluationResult<FLOXValue> list = [
             Ok (Double 10.0)
             Ok (Double 25.0)
             Ok (Double 50.0)
@@ -171,7 +171,7 @@ type TreeWalkRuntimeTest () =
             "\"hello\" + \"hello\" != \"goodbye\""
         ]
 
-        let expected: EvaluationResult list = [
+        let expected: EvaluationResult<FLOXValue> list = [
             Ok (Boolean true)
             Ok (Boolean false)
             Ok (Boolean true)
@@ -201,7 +201,7 @@ type TreeWalkRuntimeTest () =
             "(5+5)*3 + 4 >= (6*5)*3 + 4"
         ]
 
-        let expected: EvaluationResult list = [
+        let expected: EvaluationResult<FLOXValue> list = [
             Ok (Boolean false)
             Ok (Boolean true)
             Ok (Boolean true)
@@ -229,7 +229,7 @@ type TreeWalkRuntimeTest () =
             "true or true"
         ]
 
-        let expected: EvaluationResult list = [
+        let expected: EvaluationResult<FLOXValue> list = [
             Ok (Boolean false)
             Ok (Boolean false)
             Ok (Boolean false)
@@ -248,7 +248,7 @@ type TreeWalkRuntimeTest () =
             "var a = 5; var b = true or ((a = 6) and false); a;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 5.0); Ok (Boolean false); Ok (Double 5.0);]
             [Ok (Double 5.0); Ok (Boolean true); Ok (Double 5.0);]
         ]
@@ -264,7 +264,7 @@ type TreeWalkRuntimeTest () =
             "\"hello\" + nil"
         ]
 
-        let expected: EvaluationResult list = [
+        let expected: EvaluationResult<FLOXValue> list = [
             Error (DefaultCastError "" "")
             Error (DefaultCastError "" "")
             Error (DefaultNullRef)
@@ -283,7 +283,7 @@ type TreeWalkRuntimeTest () =
             "var goodbye = 1234; goodbye = goodbye + 1; goodbye = goodbye + 1;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 14.0); Ok (Double 15.0); Ok (Double 14.0); Ok (Double 2048.0)]
             [Ok (String "boys"); Ok (String "boys and girls");]
             [Ok (Double 1996.0); Ok (Double 1996.0)]
@@ -301,7 +301,7 @@ type TreeWalkRuntimeTest () =
             "var peopleAmount = nil; peopleAmount + 1;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 14.0); Error (UndefinedVariableError "undefined");]
             [Ok (Double 14.0); Error (ValueCastError "cast");]
             [Ok Nil; Error (NullReferenceError "cast")]
@@ -321,7 +321,7 @@ type TreeWalkRuntimeTest () =
             "var mutableInBlock = 10; { var mutableInBlock = mutableInBlock - 1; mutableInBlock = mutableInBlock - 1; } mutableInBlock;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 14.0); Ok VOID]
             [Ok (Double 10.0); Ok VOID; Ok (Double 8.0)]
             [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
@@ -341,7 +341,7 @@ type TreeWalkRuntimeTest () =
             "if (true) if (false) 1.0; else 2.0; else 3.0;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 1.0)]
             [Ok (Double 5.0)]
             [Ok (Boolean true); Ok (Double 5.0)]
@@ -359,7 +359,7 @@ type TreeWalkRuntimeTest () =
             "var a = 0; while (false) { a = a + 1; } a;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 0.0); Ok VOID; Ok (Double 100.0)]
             [Ok (Double 0.0); Ok VOID; Ok (Double 0.0)]
         ]
@@ -373,9 +373,21 @@ type TreeWalkRuntimeTest () =
             "for (var a = 0; a < 0; a = a + 1;) 5; a;"
         ]
 
-        let expected: EvaluationResult list list = [  
+        let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok VOID; Ok (Double 100.0)]
             [Ok VOID; Ok (Double 0.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
+    [<TestMethod>]
+    member this.BuiltinFunctionTest() =
+        let sources = [
+            "pow(3,2);"
+        ]
+
+        let expected: EvaluationResult<FLOXValue> list list = [  
+            [Ok (Double 9.0)]
         ]
 
         AssertDeclarationEvaluationsMatch sources expected

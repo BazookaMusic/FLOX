@@ -15,7 +15,7 @@ let UnwrapExpression (parseResult:ParseResult<Expression>): Expression =
         Err (0, (sprintf "%A" e)) |> ignore
         Empty
 
-let PrintResult (result: EvaluationResult) =
+let PrintResult (result: EvaluationResult<FLOXValue>) =
     match result with
         | Ok result -> 
             printf "%A" result

@@ -5,6 +5,8 @@ open Errors
 open System.Collections.Generic
 open AST
 open Tokens
+
+let MaxArgumentCount = 255;
     
 let ExpectToken (tokenType: TokenType) (tokens: ScannerToken list) (errorMessage: string) : bool * ScannerToken list * Errors =
     match tokens with
@@ -102,7 +104,7 @@ let rec ParseUnary (tokens: ScannerToken list): ParseResult<Expression> =
         | error -> error 
     | tokens -> ParseCall tokens
 
-and ParseArguments (tokens: ScannerToken list) (arguments: Expression list): ParseResult<Expression list> =
+and ParseArgumentsImpl (tokens: ScannerToken list) (arguments: Expression list) (argCount: int): ParseResult<Expression list> =
     match tokens with
         | (h::t) when h.Type = RIGHT_PAREN ->
             Ok ((List.rev arguments), t)
@@ -112,7 +114,7 @@ and ParseArguments (tokens: ScannerToken list) (arguments: Expression list): Par
             let next = fun (expr, (rest: ScannerToken list)) ->
                 match rest with
                     | (h::t) when h.Type = COMMA ->
-                        ParseArguments t (expr::arguments)
+                        ParseArgumentsImpl t (expr::arguments) (argCount + 1)
                     | (h::t) when h.Type = RIGHT_PAREN ->
                         Ok ((List.rev (expr::arguments)), t)
                     | (h::t) -> 
@@ -121,10 +123,21 @@ and ParseArguments (tokens: ScannerToken list) (arguments: Expression list): Par
                     | _ -> UnexpectedEOFParser
 
             expr .>>. next
+and HandleMaximumArgumentCount (tokens: ScannerToken list) (arguments: Expression list) (argCount: int): ParseResult<Expression list> =
+    if (argCount > MaxArgumentCount) then
+        match tokens with
+            | (h::t) -> 
+                let err = Err (h.Line, sprintf "Exceeded max amount of arguments which is '%d'" MaxArgumentCount)
+                Error ([err], t)
+            | _ -> UnexpectedEOFParser
+    else
+        ParseArgumentsImpl tokens arguments argCount
+
+and ParseArguments (tokens: ScannerToken list) (arguments: Expression list): ParseResult<Expression list> =
+    HandleMaximumArgumentCount tokens arguments 0
 
 and ParseCall (tokens: ScannerToken list): ParseResult<Expression> =
     let primary = ParsePrimary tokens
-
     primary .>>. 
         fun (prim, rest) ->
             match rest with

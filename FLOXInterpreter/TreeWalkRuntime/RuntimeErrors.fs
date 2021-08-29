@@ -6,6 +6,9 @@ type RuntimeError =
  | NullReferenceError of string
  | VoidComparisonError of string
  | UndefinedVariableError of string
+ | ArgumentEvaluationError of string * RuntimeError
+ | ArgumentCountError of string
+ | InvalidArgumentError of string
 
 let DefaultNullRef = NullReferenceError "NullReferenceError: Attempted to de-reference a null reference."
 
@@ -14,4 +17,7 @@ let DefaultCastError (type1:string) (type2:string) = ValueCastError (sprintf "Va
 let DefaultVoidComparisonError = VoidComparisonError "Cannot compare two values of type 'void'."
 
 let DefaultUndefinedVariableError varName = UndefinedVariableError (sprintf "The variable '%s' cannot be accessed because it is undefined." varName)
+
+let DefaultArgumentCountError (functionName: string) (expectedArity:int) (actualArgumentCount: int) =
+    ArgumentCountError (sprintf "The function '%s' expected %d arguments but got %d instead." functionName expectedArity actualArgumentCount)
 

@@ -314,9 +314,10 @@ and EvaluateDeclaration (environment: Environment) (declaration: Declaration): E
             value
         | error -> error
 
-let GlobalEnvironment = 
-    let env = NewEnvironment None
-    DefineBuiltinFunctions env
+let GlobalEnvironment =
+    let predefinedEnv = NewEnvironment None |> DefineBuiltinFunctions |> NewImmutableEnvironment
+
+    let env = NewEnvironment (Some predefinedEnv)
     env
     
 let ProgramEvaluate (env: Environment) (declarations: Declaration list): EvaluationResult<FLOXValue> list =

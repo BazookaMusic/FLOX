@@ -23,6 +23,7 @@ type FLOXValue =
 
 and Environment =
     | Environment of Dictionary<string, FLOXValue> * Option<Environment>
+    | ImmutableEnvironment of Dictionary<string, FLOXValue> * Option<Environment>
 
 and ArgumentNameList = List<string>
 

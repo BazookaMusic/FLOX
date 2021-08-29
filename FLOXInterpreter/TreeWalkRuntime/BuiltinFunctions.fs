@@ -47,3 +47,4 @@ let DefineBuiltinFunctions environment =
         DefineVariable environment (VarIdentifier name) func
 
     List.iter defineFunction BuiltinFunctions
+    environment

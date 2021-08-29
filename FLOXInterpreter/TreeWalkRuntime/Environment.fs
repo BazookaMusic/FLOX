@@ -7,7 +7,7 @@ open RuntimeErrors
 
 let rec GetVariableValue (environment: Environment) (identifier:Identifier): Option<FLOXValue> =
     match environment with
-    | Environment (dictionary, linked) ->
+    | Environment (dictionary, linked) | ImmutableEnvironment (dictionary, linked) ->
         match identifier with
         | VarIdentifier varName ->
             let mutable value: FLOXValue = Nil
@@ -32,6 +32,7 @@ let DefineVariable (environment: Environment) (identifier:Identifier) (value: FL
         | Environment (dictionary, _) ->
             let VarIdentifier (varName) as v = identifier
             dictionary.[varName] <- value
+        | ImmutableEnvironment _  -> () // immutable environments cannot be modified
 
 let rec SetVariableValue (environment: Environment) (identifier:Identifier) (value: FLOXValue): bool =
     match environment with
@@ -46,9 +47,18 @@ let rec SetVariableValue (environment: Environment) (identifier:Identifier) (val
                 match linked with
                     | Some env -> SetVariableValue env identifier value
                     | None -> false
+    | ImmutableEnvironment (dictionary, linked) ->
+        match linked with
+            | None -> false
+            | Some env -> SetVariableValue env identifier value
 
 let NewEnvironment (parent: Option<Environment>) =
     Environment (new Dictionary<string,FLOXValue>(), parent)
+
+let NewImmutableEnvironment (env: Environment) =
+    match env with
+        | ImmutableEnvironment _ -> env
+        | Environment (dictionary, parent) -> ImmutableEnvironment (dictionary, parent)
 
 let rec EnvironmentWithNameValueMapping (environment: Environment) (names: List<string>) (values: List<FLOXValue>) (index: int) =
     if index = names.Count then

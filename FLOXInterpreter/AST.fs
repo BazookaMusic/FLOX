@@ -91,3 +91,4 @@ and
     Declaration = 
         | StatementDeclaration of Statement
         | VariableDeclaration of Identifier * Option<Expression>
+        | FunctionDeclaration of Identifier * (Identifier list) * Statement

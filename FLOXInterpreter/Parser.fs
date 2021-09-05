@@ -432,7 +432,7 @@ and ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
         match expressionResult with
         | Ok (expression, rest) -> 
             let variableDeclaration = VariableDeclaration (VarIdentifier h1.Lexeme, Some expression)
-            let (semiFound, rest2, error) = ExpectToken SEMICOLON rest "Expected ';' after expression"
+            let (semiFound, rest2, error) = ExpectToken SEMICOLON rest "Expected ';' after expression."
 
             if semiFound then
                 Ok (variableDeclaration, rest2)
@@ -441,7 +441,7 @@ and ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
         | Error (e, rest) -> Error (e, rest)
     | (h1::t) when h1.Type = IDENTIFIER ->
         let variableDeclaration = VariableDeclaration (VarIdentifier h1.Lexeme, None)
-        let (semiFound, rest2, error) = ExpectToken SEMICOLON t "Expected ';' after variable declaration"
+        let (semiFound, rest2, error) = ExpectToken SEMICOLON t "Expected ';' after variable declaration."
         match semiFound with
         | true -> Ok (variableDeclaration, rest2)
         | false -> Error ([error], rest2)
@@ -454,13 +454,67 @@ and ParseVariableDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
     | _ -> 
         UnexpectedEOFParser<Declaration>
 
-//and ParseFunction (tokens: ScannerToken list): ParseResult<Declaration> =
-    
-    
+and ParseArgumentDeclarations (tokens: ScannerToken list) (acc: Identifier list): ParseResult<Identifier list> =
+    match tokens with
+        | (h::t) when h.Type = RIGHT_PAREN ->
+            Ok (List.rev acc, t)
+        | _ ->
+            let identifer = ParsePrimary tokens
+
+            identifer .>>. (fun (id, afterId) ->
+                match id with
+                    | Expression.Literal ((Literal.IDENTIFIER strValue)) ->
+                        match afterId with
+                            | (h::t) when h.Type = COMMA ->
+                                ParseArgumentDeclarations t ((VarIdentifier strValue)::acc)
+                            | (h::t) when h.Type = RIGHT_PAREN ->
+                                ParseArgumentDeclarations (h::t) ((VarIdentifier strValue)::acc)
+                            | (h::t) ->
+                                let error = Err (h.Line, sprintf "Expected ',' or ')' in argument declaration but got '%s' instead." h.Lexeme)
+                                Error ([error], t)
+                            | _ -> UnexpectedEOFParser
+                    | _ ->
+                        match afterId with
+                            | (h::t) ->
+                                let error = Err (h.Line, sprintf "Expected identifier in argument declaration.")
+                                Error ([error], t)
+                            | _ -> UnexpectedEOFParser)
+
+and ParseFunctionArgumentDeclarations (tokens: ScannerToken list): ParseResult<Identifier list> =
+    ParseArgumentDeclarations tokens []
+
+and ParseFunctionDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
+    let identifier = ParsePrimary tokens
+
+    identifier .>>. (fun (id, rest) ->
+        match id with
+            | Expression.Literal (Literal.IDENTIFIER identifierName) ->
+                let leftParen = ParseToken LEFT_PAREN rest ")"
+
+                leftParen .>>. (fun (_, afterParen) ->
+                        let arguments = ParseFunctionArgumentDeclarations afterParen
+
+                        arguments .>>. (fun (argumentList, after) ->
+                            let leftBrace = ParseToken LEFT_BRACE after "{"
+
+                            leftBrace .>>. (fun (_, after) ->
+                                let block = ParseBlock after
+                                block .>>. (function (functionBody, after) ->
+                                                Ok (FunctionDeclaration (VarIdentifier identifierName, argumentList, functionBody), after)
+                                           )
+                                )
+                        )
+                    )
+            | _ ->
+                let firstToken = List.head tokens
+                let error = Err (firstToken.Line, sprintf "Expected identifier but got '%s' instead." firstToken.Lexeme)
+                Error ([error], rest)
+            )
+
 and ParseDeclaration (tokens: ScannerToken list): ParseResult<Declaration> =
     match tokens with
     | (h::t) when h.Type = VAR -> ParseVariableDeclaration t
-   // | (h::t) when h.Type = LEFT_BRACE -> 
+    | (h::t) when h.Type = FUN -> ParseFunctionDeclaration t
     | (h::t) -> 
         let statement = ParseStatementByType tokens
         match statement with

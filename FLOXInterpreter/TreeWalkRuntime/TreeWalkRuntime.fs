@@ -302,17 +302,17 @@ and EvaluateStatement (environment: Environment) (statement: Statement): Evaluat
 
 and EvaluateDeclaration (environment: Environment) (declaration: Declaration): EvaluationResult<FLOXValue> =
     match declaration with
-    | StatementDeclaration statement -> EvaluateStatement environment statement
-    | VariableDeclaration (identifier, maybeExpression) ->
-        let value = match maybeExpression with
-            | Some expression -> EvaluateExpression environment expression
-            | None -> Ok Nil
+        | StatementDeclaration statement -> EvaluateStatement environment statement
+        | VariableDeclaration (identifier, maybeExpression) ->
+            let value = match maybeExpression with
+                | Some expression -> EvaluateExpression environment expression
+                | None -> Ok Nil
 
-        match value with
-        | Ok v -> 
-            DefineVariable environment identifier v |> ignore
-            value
-        | error -> error
+            match value with
+            | Ok v -> 
+                DefineVariable environment identifier v |> ignore
+                value
+            | error -> error
 
 let GlobalEnvironment =
     let predefinedEnv = NewEnvironment None |> DefineBuiltinFunctions |> NewImmutableEnvironment

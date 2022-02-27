@@ -58,12 +58,19 @@ fun mainLoop()
             var result = rockPaperScissors(yourAnswer, angelinasChoice);
             if (result == 1)
             {
+                writeLine("You won this round!");
                 yourScore = yourScore + 1;
             }
 
             if (result == 2)
             {
+                writeLine("Angelina won this round!");
                 angelinasScore = angelinasScore + 1;
+            }
+
+            if (result == 0)
+            {
+                writeLine("The round was a tie!");
             }
 
             writeLine("You - Angelina: " + toString(yourScore) + " - " + toString(angelinasScore));

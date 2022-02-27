@@ -12,11 +12,11 @@ let main argv =
             exit 0
         else
             exit 64
-    elif argv.Length = 0 then
-        RunPrompt |> ignore
-        exit 0
+    //elif argv.Length = 0 then
+    //    RunPrompt |> ignore
+    //    exit 0
     else
-        printfn "Usage: jlox [script file] | jlox"
+        printfn "Usage: jlox [script file]"
         exit 64
         
         

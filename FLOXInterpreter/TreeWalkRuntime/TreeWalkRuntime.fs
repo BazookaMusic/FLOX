@@ -7,6 +7,8 @@ open RuntimeErrors
 open RuntimeTypes
 open Environment
 open BuiltinFunctions
+open ImmutableToMutable
+open FlowException
 
 let ConvertToNumeric (value: FLOXValue): EvaluationResult<FLOXValue> =
     match value with
@@ -29,8 +31,6 @@ let CombineNumericValues (leftResult: EvaluationResult<FLOXValue>) (rightResult:
             | (Error error as e, _) -> e
             | (_, (Error error as e)) -> e
             | _ -> Error (FatalError "Failed to apply numeric operation to values.")
-        | (Error error as e, _) -> e
-        | (_, (Error error as e)) -> e
 
 let CompareNumericValues (leftResult: EvaluationResult<FLOXValue>) (rightResult: EvaluationResult<FLOXValue>) (operation: (double -> double -> bool) ) =
     match (leftResult, rightResult) with
@@ -210,7 +210,10 @@ let rec EvaluateExpression (environment: Environment) (expression: Expression): 
                     match argumentsEvaluated with
                           | Ok args ->
                                if (args.Count = argumentNames.Count) then
-                                    callable (EnvironmentFromArguments environment argumentNames args)
+                                    try
+                                        callable (EnvironmentFromArguments environment argumentNames args)
+                                    with
+                                        | FlowReturn v -> Ok v
                                else
                                 Error (DefaultArgumentCountError name argumentNames.Count args.Count)
                           | Error e -> Error (ArgumentEvaluationError (sprintf "Failed to evaluate arguments of function '%s'." name, e))  
@@ -229,8 +232,10 @@ let rec EvaluateWhile environment predicateExpression statement evaluationFn =
             if (not (IsTruthy value)) then
                 Ok VOID
             else
-                evaluationFn environment statement |> ignore
-                EvaluateWhile environment predicateExpression statement evaluationFn
+                let res = evaluationFn environment statement
+                match res with
+                    | (Error e) as err -> err
+                    | _ -> EvaluateWhile environment predicateExpression statement evaluationFn
         | error -> error
 
 let rec EvaluateForImpl environment declaration predicateExpression final statement statementEvaluationFn =
@@ -267,8 +272,17 @@ let EvaluateFor (environment: Environment) (declaration: Option<Declaration>) (p
 let rec EvaluateBlock (parentEnvironment: Environment) (block: Statement): EvaluationResult<FLOXValue> =
     let newEnvironment = NewEnvironment (Some parentEnvironment)
     let Block declarations as b = block
-    List.map (EvaluateDeclaration newEnvironment) declarations |> ignore
-    Ok VOID
+    EvaluateBlockRecursive newEnvironment declarations
+
+and EvaluateBlockRecursive (environment: Environment) (declarations: Declaration list)  : EvaluationResult<FLOXValue> =
+    match declarations with
+        | [] -> Ok VOID
+        | (h::[]) -> EvaluateDeclaration environment h
+        | (h::t) -> 
+            let result = EvaluateDeclaration environment h
+            match result with
+                | (Error e) as err -> err
+                | _ -> EvaluateBlockRecursive environment t
 
 and EvaluateStatement (environment: Environment) (statement: Statement): EvaluationResult<FLOXValue> =
     match statement with
@@ -294,6 +308,11 @@ and EvaluateStatement (environment: Environment) (statement: Statement): Evaluat
                         | Some statement -> EvaluateStatement environment statement
                         | None -> Ok VOID
             | error -> error
+    | ReturnStatement (expression) ->
+        let returnValue = EvaluateExpression environment expression
+        match returnValue with
+            | Ok value as okValue -> raise (FlowReturn value)
+            | error -> error
     | WhileStatement (predicate, statement) ->
         EvaluateWhile environment predicate statement EvaluateStatement
     | ForStatement (declaration, condition, final, statement) ->
@@ -313,6 +332,14 @@ and EvaluateDeclaration (environment: Environment) (declaration: Declaration): E
                 DefineVariable environment identifier v |> ignore
                 value
             | error -> error
+        | FunctionDeclaration (functionIdentifier, parameters, body) ->
+            let funcBody = fun (env : Environment) -> EvaluateBlock env body
+            let VarIdentifier funcName as fn = functionIdentifier
+            let paramNames =  List.map (fun (VarIdentifier parameterIdentifier) -> parameterIdentifier) parameters
+            let callable = Callable (funcName, ToList paramNames, funcBody)
+
+            DefineVariable environment functionIdentifier callable |> ignore
+            Ok callable
 
 let GlobalEnvironment =
     let predefinedEnv = NewEnvironment None |> DefineBuiltinFunctions |> NewImmutableEnvironment

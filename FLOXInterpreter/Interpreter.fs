@@ -7,6 +7,7 @@ open Parser
 open AST
 open TreeWalkRuntime
 open RuntimeTypes
+open FlowException
 
 let UnwrapExpression (parseResult:ParseResult<Expression>): Expression = 
     match parseResult with
@@ -22,18 +23,29 @@ let PrintResult (result: EvaluationResult<FLOXValue>) =
         | Error error ->
             eprintf "%A" error
 
-let run (content: string): unit =
-    ()
-    // ScanTokens content |> Parse |> UnwrapExpression |> Evaluate |> PrintResult
+let ValidateParsing (parsingResult: ParseResult<Declaration list>) : Declaration list =
+    match parsingResult with
+        | ParseResult.Ok (declList, _) as okList -> declList
+        | ParseResult.Error (_, _) ->
+            failwith "Parsing failed"
+
+let ParseDeclarations source : Declaration list = source |> ScanTokens |> ParseProgram |> ValidateParsing
+
+let rec EvaluateDeclarations (declarations: Declaration list) : EvaluationResult<FLOXValue> =
+    match declarations with
+        | [] -> Ok (VOID)
+        | (h::t) ->
+            try
+                let declarationResult = EvaluateDeclaration (GlobalEnvironment) h
+                if (t.IsEmpty) then
+                    declarationResult
+                else
+                    EvaluateDeclarations t
+            with
+                | FlowReturn v -> Ok v
+
+let RunProgram (content: string): unit =
+    (ParseDeclarations content) |> EvaluateDeclarations |> PrintResult
 
 // executes a particular file
-let RunFile (filePath: string) = System.IO.File.ReadAllText filePath |> run
-
-let read _ = Console.ReadLine()
-let isValid = function null -> false | _ -> true
-
-let RunPrompt = Seq.initInfinite read |> Seq.takeWhile isValid |> Seq.toList |> List.fold (+) "\n"
-
-//let Interpret (source: string) : EvaluationResult =
-//    source |> ScanTokensSafe |> ParseSafe |> Evaluate
-    
+let RunFile (filePath: string) = System.IO.File.ReadAllText filePath |> RunProgram

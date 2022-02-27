@@ -27,7 +27,6 @@ and Environment =
 
 and ArgumentNameList = List<string>
 
-
 let StringifyValue (v: FLOXValue) : string =
     match v with
         | Object o -> o.ToString()

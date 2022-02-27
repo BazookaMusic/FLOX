@@ -203,15 +203,15 @@ and ParseTerm (tokens: ScannerToken list): ParseResult<Expression> =
     | _ -> parseFactor
 
 and ParseAND (tokens: ScannerToken list): ParseResult<Expression> =
-    let parseTerm = ParseTerm tokens
-    match parseTerm with
+    let parseEq = ParseEquality tokens
+    match parseEq with
     | Ok (expr, rest) -> 
-        let termTokens (token: ScannerToken) = match token.Type with
+        let eqTokens (token: ScannerToken) = match token.Type with
         | TokenType.AND -> true
         | _ -> false
 
-        ParseMultipleOfSameType rest ParseAND expr  termTokens "and"
-    | _ -> parseTerm
+        ParseMultipleOfSameType rest ParseAND expr eqTokens "and"
+    | _ -> parseEq
 
 and ParseOR (tokens: ScannerToken list): ParseResult<Expression> =
     let parseAND = ParseAND tokens
@@ -225,15 +225,15 @@ and ParseOR (tokens: ScannerToken list): ParseResult<Expression> =
     | _ -> parseAND
     
 and ParseComparison (tokens: ScannerToken list): ParseResult<Expression> = 
-    let parseOR = ParseOR tokens
-    match parseOR with
+    let parseTerms = ParseTerm tokens
+    match parseTerms with
     | Ok (expr, rest) -> 
         let comparisonTokens (token: ScannerToken) = match token.Type with
             | TokenType.LESS | TokenType.LESS_EQUAL | TokenType.GREATER | TokenType.GREATER_EQUAL -> true
             | _ -> false
 
         ParseMultipleOfSameType rest ParseTerm expr comparisonTokens "comparison"
-    | _ -> parseOR
+    | _ -> parseTerms
 
 and ParseEquality (tokens: ScannerToken list): ParseResult<Expression> = 
     let parseComp = ParseComparison tokens
@@ -254,7 +254,7 @@ and Assignment (identifier:string) (tokens: ScannerToken list) : ParseResult<Exp
     | error -> error
     
 and ParseExpression (tokens: ScannerToken list): ParseResult<Expression> =
-    let expressionResult = ParseEquality tokens
+    let expressionResult = ParseOR tokens
 
     match expressionResult with
     // Assignment
@@ -283,6 +283,9 @@ let ParseExpressionStatement (tokens: ScannerToken list): ParseResult<Statement>
 
 let ParsePrintStatement (tokens: ScannerToken list): ParseResult<Statement> =
     ParseStatement tokens (fun expr -> PrintStatement expr)
+
+let ParseReturnStatement (tokens: ScannerToken list) : ParseResult<Statement> =
+    ParseStatement tokens (fun expr -> ReturnStatement expr)
 
 let rec ParseMultipleDeclarations (tokens: ScannerToken list) (parsedDeclarations: Declaration list) (expectedEnd: TokenType): ParseResult<Declaration list> =
     match tokens with
@@ -416,6 +419,7 @@ and ParseStatementByType (tokens: ScannerToken list): ParseResult<Statement> =
     | (h::t) when h.Type = IF -> ParseIfStatement t
     | (h::t) when h.Type = LEFT_BRACE -> ParseBlock t
     | (h::t) when h.Type = PRINT -> ParsePrintStatement t
+    | (h::t) when h.Type = RETURN -> ParseReturnStatement t
     | (h::t) -> ParseExpressionStatement tokens
     | [h] when h.Type = EOF -> 
         let error = Err (h.Line, "Expected statement but got EOF")

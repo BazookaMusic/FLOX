@@ -1,0 +1,78 @@
+fun rockPaperScissors(player1Answer, player2Answer)
+{
+    if (player1Answer == player2Answer)
+    {
+        return 0;
+    }
+
+    if (player1Answer == "ROCK" and player2Answer != "PAPER")
+    {
+        return 1;
+    }
+
+    if (player1Answer == "PAPER" and player2Answer != "SCISSORS")
+    {
+        return 1;
+    }
+
+    if (player1Answer == "SCISSORS" and player2Answer != "PAPER")
+    {
+        return 1;
+    }
+
+    return 2;
+}
+
+fun choice()
+{
+    var myChoice = random(3);
+    if (myChoice == 0)
+    {
+        return "ROCK";
+    }
+
+    if (myChoice == 1)
+    {
+        return "PAPER";
+    }
+
+    return "SCISSORS";
+}
+
+fun mainLoop()
+{
+    writeLine("Time for a rock-paper-scissors game with Angelina! Write 'ROCK', 'PAPER' or 'SCISSORS' to select your choice!");
+    var yourScore = 0;
+    var angelinasScore = 0;
+    while(true)
+    {
+        writeLine("Your turn!");
+        var angelinasChoice = choice();
+
+        var yourAnswer = readLine();
+
+        if (yourAnswer == "PAPER" or yourAnswer == "SCISSORS" or yourAnswer == "ROCK")
+        {
+            writeLine("Angelina chose: " + angelinasChoice);
+            
+            var result = rockPaperScissors(yourAnswer, angelinasChoice);
+            if (result == 1)
+            {
+                yourScore = yourScore + 1;
+            }
+
+            if (result == 2)
+            {
+                angelinasScore = angelinasScore + 1;
+            }
+
+            writeLine("You - Angelina: " + toString(yourScore) + " - " + toString(angelinasScore));
+        }
+        else
+        {
+            writeLine(yourAnswer + " is not a valid option. Write 'ROCK', 'PAPER' or 'SCISSORS' to select your choice!");
+        }
+    }
+}
+
+mainLoop();

@@ -15,8 +15,8 @@ type UnaryOperator = MINUS | BANG | INVALID
 type Identifier = VarIdentifier of string
 
 let TokenToBinaryOperator (token: TokenType)  = match token with
-    | BANG_EQUAL -> NEQ
-    | EQUAL_EQUAL -> EQ
+    | TokenType.BANG_EQUAL -> NEQ
+    | TokenType.EQUAL_EQUAL -> EQ
     | TokenType.LESS -> BinaryOperator.LESS
     | TokenType.LESS_EQUAL -> LESSEQ
     | TokenType.GREATER -> BinaryOperator.GREATER
@@ -83,6 +83,7 @@ let UnaryOperatorToString (op: UnaryOperator) = match op with
 type Statement = 
     | ExpressionStatement of Expression
     | PrintStatement of Expression
+    | ReturnStatement of Expression
     | IfStatement of Expression * Statement * Option<Statement>
     | WhileStatement of Expression * Statement
     | ForStatement of Option<Declaration> * Option<Statement> * Option<Statement> * Statement

@@ -1,12 +1,12 @@
 ﻿fun fibonacci(n) {
-        if (n == 0)
-          return 0;
+	if (n == 0)
+		return 0;
 
-	first = 0;
+	var first = 0;
 
-	second = 1;
+	var second = 1;
 
-        var i = 0;
+    var i = 0;
 	while ((i = i + 1) < n)
 	{
           var temp = first;
@@ -17,7 +17,4 @@
 	return second;
 }
 
-fun main()
-{
-	return fibonacci(1025);
-}
+fibonacci(55);

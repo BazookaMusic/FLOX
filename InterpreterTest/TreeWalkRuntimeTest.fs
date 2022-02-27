@@ -10,6 +10,7 @@ open TreeWalkRuntime
 open RuntimeErrors
 open RuntimeTypes
 open Interpreter
+open ImmutableToMutable
 
 [<TestClass>]
 type TreeWalkRuntimeTest () =
@@ -60,6 +61,15 @@ type TreeWalkRuntimeTest () =
 
         List.iter equalityFun actualExpectedPairs
 
+    let floxValueEquality (x : FLOXValue) (y: FLOXValue) =
+        match (x,y) with
+            | (Callable (nameLeft, paramsLeft, _), Callable (nameRight, paramsRight, _)) ->
+                Assert.AreEqual (nameLeft, nameRight)
+                Assert.AreEqual (paramsLeft.Count, paramsRight.Count, $"Mismatch between parameter count for fn {nameLeft} with ${paramsLeft.Count} left and ${paramsRight.Count} right")
+                let pairs = List.zip (Seq.toList paramsLeft) (Seq.toList paramsRight)
+                List.iter (fun (x,y) -> Assert.AreEqual (x,y)) pairs
+            | (x,y) -> Assert.AreEqual (x,y)
+
     let rec AssertDeclarationEvaluationsMatch (sources: string list) (expected: EvaluationResult<FLOXValue> list list) =
         let actual = List.map (fun s -> s |> ParseDeclaration |> (List.map (EvaluateDeclaration GlobalEnvironment))) sources
 
@@ -75,11 +85,12 @@ type TreeWalkRuntimeTest () =
 
                 let innerActualExpectedPairs = List.zip y x
 
-                let resultComparison (x, y) =
+                let resultComparison (x: EvaluationResult<FLOXValue>, y: EvaluationResult<FLOXValue>) =
                     match (x,y) with
                     | (Error e1, Error e2) ->
                         Assert.AreEqual (e2.GetType(), e1.GetType())
-                    | (v1, v2) -> Assert.AreEqual (v2,v1)
+                    | (Ok v1, Ok v2) -> floxValueEquality v1 v2
+                    | (v1, v2) -> Assert.AreEqual (v1.GetType(), v2.GetType())
 
                 List.iter resultComparison innerActualExpectedPairs
 
@@ -322,10 +333,10 @@ type TreeWalkRuntimeTest () =
         ]
 
         let expected: EvaluationResult<FLOXValue> list list = [  
-            [Ok (Double 14.0); Ok VOID]
-            [Ok (Double 10.0); Ok VOID; Ok (Double 8.0)]
-            [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
-            [Ok (Double 10.0); Ok VOID; Ok (Double 10.0)]
+            [Ok (Double 14.0); Ok (Double 2.0)]
+            [Ok (Double 10.0); Ok (Double 8.0); Ok (Double 8.0)]
+            [Ok (Double 10.0); Ok (Double 1023.0); Ok (Double 10.0)]
+            [Ok (Double 10.0); Ok (Double 8.0); Ok (Double 10.0)]
         ]
 
         AssertDeclarationEvaluationsMatch sources expected
@@ -388,6 +399,53 @@ type TreeWalkRuntimeTest () =
 
         let expected: EvaluationResult<FLOXValue> list list = [  
             [Ok (Double 9.0)]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
+    [<TestMethod>]
+    member this.BuiltinFunctionsTest() =
+        let sources = [
+            "pow(3,2);"
+            "writeLine(\"hello\");"
+        ]
+
+        let expected: EvaluationResult<FLOXValue> list list = [  
+            [Ok (Double 9.0)]
+            [Ok VOID]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
+    [<TestMethod>]
+    member this.FunctionsTest() =
+        let fibonacciDefinition = 
+            "fun fibonacci(n) \
+            {\
+                if (n == 0)\
+                    return 0;\
+                if (n == 1 or n == 2)\
+                    return 1;\
+                \
+                return fibonacci(n-1) + fibonacci(n-2);\
+            }\
+            \
+            "
+
+        let sources = [
+          "fun identity(x) { return x;}  identity(1);"
+          "fun sum(x,y) { return x + y;} sum(3,2);"
+          fibonacciDefinition + "fibonacci(1);"
+          fibonacciDefinition + "fibonacci(3);"
+          fibonacciDefinition + "fibonacci(8);"
+        ]
+
+        let expected: EvaluationResult<FLOXValue> list list = [
+            [Ok (Callable ("identity", ToList ["x"], fun env -> Ok VOID)); Ok (Double 1.0)]
+            [Ok (Callable ("sum", ToList ["x";"y"], fun env -> Ok VOID)); Ok (Double 5.0)]
+            [Ok (Callable ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 1.0) ]
+            [Ok (Callable ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 2.0) ]
+            [Ok (Callable ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 21.0) ]
         ]
 
         AssertDeclarationEvaluationsMatch sources expected

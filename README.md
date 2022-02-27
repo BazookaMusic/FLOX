@@ -12,7 +12,6 @@ dotnet build path_to_interpreter_solution
 ## How to use it
 
 ```
-FLOXInterprepeter.exe 'path_to_source' // for a source file
-FLOXInterprepeter.exe // for interactive prompt
+FLOXInterpreter.exe 'path_to_source' // for a source file
 ```
 

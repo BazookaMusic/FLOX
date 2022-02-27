@@ -281,6 +281,12 @@ type ParserTest () =
 
         AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
 
+        let source = "5 == 5 or 5 == 5"
+        let eqExpression = Expression.BinaryExpression (numberLiteral5, BinaryOperator.EQ, numberLiteral5)
+        let expectedTree = Expression.BinaryExpression (eqExpression, BinaryOperator.OR, eqExpression)
+
+        AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
+
     [<TestMethod>]
     member this.StatementParseTest () =
         let source = "5 + 6 + 7; 5 + 6 + 7; \"hello\" + \"hello\"; print 5 + 5;"
@@ -354,6 +360,55 @@ type ParserTest () =
         let expectedDeclarations = [alpha; block; printAlpha] 
 
         Assert.AreEqual (expectedDeclarations, declarations)
+
+    [<TestMethod>]
+    member this.FunctionDeclarationParseTest () =
+        let sources = [
+            "fun foo(bar, boo, ni) { print 5; }";
+            "fun foo(bar, boo, ni) { }";
+            "fun foo() { print 5; }";
+        ]
+
+        let body = Statement.Block ([StatementDeclaration (Statement.PrintStatement (Expression.Literal (Literal.NUMBER 5.0)))])
+        let emptyBody = Statement.Block([])
+
+        let arguments = [VarIdentifier "bar"; VarIdentifier "boo"; VarIdentifier "ni"]
+
+        let funDecl = FunctionDeclaration (VarIdentifier "foo", arguments, body)
+        let funDeclEmptyBody = FunctionDeclaration (VarIdentifier "foo", arguments, emptyBody)
+        let funDeclEmptyArguments =  FunctionDeclaration (VarIdentifier "foo", [], body)
+
+        let expected = [
+            [funDecl]
+            [funDeclEmptyBody]
+            [funDeclEmptyArguments]
+        ]
+
+        ParsedSourceEqualsExpectedTree sources expected
+
+    [<TestMethod>]
+    member this.FunctionWithReturnParseTest () =
+        let sources = [
+            "fun foo(bar, boo, ni) { return 5; }";
+            "fun foo(bar, boo, ni) { if (false) return 4; else return 5;}";
+        ]
+
+        let singleReturnBody = Statement.Block ([StatementDeclaration (Statement.ReturnStatement (Expression.Literal (Literal.NUMBER 5.0)))])
+
+        let ifWithTwoReturnsBody = Statement.Block [StatementDeclaration (IfStatement (Literal FALSEVAL, ReturnStatement (Literal (Literal.NUMBER 4.0)), Some (ReturnStatement (Literal (Literal.NUMBER 5.0))))) ]
+
+        let arguments = [VarIdentifier "bar"; VarIdentifier "boo"; VarIdentifier "ni"]
+
+        let singleReturnFunctionDecl = FunctionDeclaration (VarIdentifier "foo", arguments, singleReturnBody)
+
+        let twoReturnsWithIfFunctionDecl = FunctionDeclaration (VarIdentifier "foo", arguments, ifWithTwoReturnsBody)
+
+        let expected = [
+            [singleReturnFunctionDecl]
+            [twoReturnsWithIfFunctionDecl]
+        ]
+
+        ParsedSourceEqualsExpectedTree sources expected
 
     [<TestMethod>]
     member this.IfStatementParseTest() =

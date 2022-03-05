@@ -17,12 +17,10 @@
     <Compile Include="TreeWalkRuntime\RuntimeTypes.fs" />
 	<Compile Include="TreeWalkRuntime\FlowException.fs" />
     <Compile Include="TreeWalkRuntime\Environment.fs" />
+	<Compile Include="TreeWalkRuntime\Constants.fs" />
     <Compile Include="TreeWalkRuntime\BuiltinFunctions.fs" />
     <Compile Include="TreeWalkRuntime\TreeWalkRuntime.fs" />
     <Compile Include="Interpreter.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-
-  <ItemGroup />
-
 </Project>

@@ -3,16 +3,16 @@
 open Tokens
 
 [<Struct>]
-type Literal = NUMBER of d:double | STRING of s: string | TRUEVAL | FALSEVAL | NIL | IDENTIFIER of id: string
+type Identifier = VarIdentifier of string
+
+[<Struct>]
+type Literal = NUMBER of d:double | STRING of s: string | TRUEVAL | FALSEVAL | NIL | IDENTIFIER of Identifier
 
 [<Struct>]
 type BinaryOperator = EQ | NEQ | LESS | LESSEQ | GREATER | GREATEREQ | PLUS  | MINUS  | MULT | DIV | INVALID | AND | OR
 
 [<Struct>]
 type UnaryOperator = MINUS | BANG | INVALID
-
-[<Struct>]
-type Identifier = VarIdentifier of string
 
 let TokenToBinaryOperator (token: TokenType)  = match token with
     | TokenType.BANG_EQUAL -> NEQ
@@ -60,7 +60,7 @@ let LiteralToString (literal: Literal): string = match literal with
     | TRUEVAL -> "true"
     | FALSEVAL -> "false"
     | NIL -> "nil"
-    | IDENTIFIER id -> id
+    | IDENTIFIER (VarIdentifier id) -> id
 
 let BinaryOperatorToString (op:BinaryOperator) = match op with
     | EQ -> "=="

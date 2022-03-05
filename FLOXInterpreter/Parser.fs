@@ -170,7 +170,7 @@ and ParsePrimary (tokens: ScannerToken list): ParseResult<Expression> =
         | TokenType.TRUE -> Ok (Literal (Literal.TRUEVAL), t)
         | TokenType.FALSE -> Ok (Literal (Literal.FALSEVAL), t)
         | TokenType.NIL -> Ok (Literal (Literal.NIL), t)
-        | TokenType.IDENTIFIER -> Ok (Literal (Literal.IDENTIFIER h.Lexeme), t)
+        | TokenType.IDENTIFIER -> Ok (Literal (Literal.IDENTIFIER (VarIdentifier h.Lexeme)), t)
         | TokenType.LEFT_PAREN ->
             ParseGroup t
         | _ -> 
@@ -246,11 +246,11 @@ and IsAssignment (tokens: ScannerToken list): bool =
     | (identifier::eq::rest) when identifier.Type = IDENTIFIER && eq.Type = EQUAL -> true
     | _ -> false
 
-and Assignment (identifier:string) (tokens: ScannerToken list) : ParseResult<Expression> =
+and Assignment (identifier:Identifier) (tokens: ScannerToken list) : ParseResult<Expression> =
     let expressionResult = ParseExpression tokens
 
     match expressionResult with
-    | Ok (expression, restOfTokens) -> Ok (Expression.Assign (VarIdentifier identifier, expression), restOfTokens)
+    | Ok (expression, restOfTokens) -> Ok (Expression.Assign (identifier, expression), restOfTokens)
     | error -> error
     
 and ParseExpression (tokens: ScannerToken list): ParseResult<Expression> =
@@ -364,9 +364,9 @@ and ParseFirstForStatement (tokens: ScannerToken list) =
     let declaration = ParseDeclaration tokens
 
     match declaration with
-        | Ok (StatementDeclaration stmt, afterStmt) ->
+        | Ok (VariableDeclaration (identifier, stmt) as vd, afterStmt) ->
             match stmt with
-                | ExpressionStatement s -> declaration
+                | Some expresion -> Ok (vd, afterStmt)
                 | _ ->
                     let token = List.head tokens
                     let error = Err (token.Line, "Expected statement")
@@ -467,12 +467,12 @@ and ParseArgumentDeclarations (tokens: ScannerToken list) (acc: Identifier list)
 
             identifer .>>. (fun (id, afterId) ->
                 match id with
-                    | Expression.Literal ((Literal.IDENTIFIER strValue)) ->
+                    | Expression.Literal ((Literal.IDENTIFIER identifier)) ->
                         match afterId with
                             | (h::t) when h.Type = COMMA ->
-                                ParseArgumentDeclarations t ((VarIdentifier strValue)::acc)
+                                ParseArgumentDeclarations t (identifier::acc)
                             | (h::t) when h.Type = RIGHT_PAREN ->
-                                ParseArgumentDeclarations (h::t) ((VarIdentifier strValue)::acc)
+                                ParseArgumentDeclarations (h::t) (identifier::acc)
                             | (h::t) ->
                                 let error = Err (h.Line, sprintf "Expected ',' or ')' in argument declaration but got '%s' instead." h.Lexeme)
                                 Error ([error], t)
@@ -493,7 +493,7 @@ and ParseFunctionDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
     identifier .>>. (fun (id, rest) ->
         match id with
             | Expression.Literal (Literal.IDENTIFIER identifierName) ->
-                let leftParen = ParseToken LEFT_PAREN rest ")"
+                let leftParen = ParseToken LEFT_PAREN rest "("
 
                 leftParen .>>. (fun (_, afterParen) ->
                         let arguments = ParseFunctionArgumentDeclarations afterParen
@@ -504,7 +504,7 @@ and ParseFunctionDeclaration (tokens: ScannerToken list): ParseResult<Declaratio
                             leftBrace .>>. (fun (_, after) ->
                                 let block = ParseBlock after
                                 block .>>. (function (functionBody, after) ->
-                                                Ok (FunctionDeclaration (VarIdentifier identifierName, argumentList, functionBody), after)
+                                                Ok (FunctionDeclaration (identifierName, argumentList, functionBody), after)
                                            )
                                 )
                         )

@@ -95,7 +95,7 @@ type ParserTest () =
 
         let source = "identifier1"
         
-        let expectedTree = Expression.Literal (Literal.IDENTIFIER "identifier1")
+        let expectedTree = Expression.Literal (Literal.IDENTIFIER (VarIdentifier "identifier1"))
         
         AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
 
@@ -103,20 +103,20 @@ type ParserTest () =
     member this.FunctionCallParseTest () =
         let source = "ignite()"
 
-        let expectedTree = Expression.Call (Expression.Literal (Literal.IDENTIFIER "ignite"), [])
+        let expectedTree = Expression.Call (Expression.Literal (Literal.IDENTIFIER (VarIdentifier "ignite")), [])
 
         AssertExpressionTreesEqual expectedTree (ParseExpressionSource source)
 
         let source = "transmogrify(\"gold\", \"silver\", 1024.0)"
 
-        let expected = Call (Literal (Literal.IDENTIFIER "transmogrify"), [Literal (Literal.STRING "gold"); Literal (Literal.STRING "silver"); Literal (Literal.NUMBER 1024.0)])
+        let expected = Call (Literal (Literal.IDENTIFIER (VarIdentifier "transmogrify")), [Literal (Literal.STRING "gold"); Literal (Literal.STRING "silver"); Literal (Literal.NUMBER 1024.0)])
         let actual = ParseExpressionSource source
         AssertExpressionTreesEqual expected actual
 
         let complexSource = "foo(4 * pow(4,2), \"foo\" + barfun())"
-        let stringFun = BinaryExpression (Literal (Literal.STRING "foo"), BinaryOperator.PLUS, Call (Literal (Literal.IDENTIFIER "barfun"), []))
-        let numFun = BinaryExpression (Literal (Literal.NUMBER 4.0), BinaryOperator.MULT, Call (Literal (Literal.IDENTIFIER "pow"), [Literal (Literal.NUMBER 4.0); Literal (Literal.NUMBER 2.0)]))
-        let expected = Call (Literal (Literal.IDENTIFIER "foo"), [numFun ; stringFun])
+        let stringFun = BinaryExpression (Literal (Literal.STRING "foo"), BinaryOperator.PLUS, Call (Literal (Literal.IDENTIFIER (VarIdentifier "barfun")), []))
+        let numFun = BinaryExpression (Literal (Literal.NUMBER 4.0), BinaryOperator.MULT, Call (Literal (Literal.IDENTIFIER (VarIdentifier "pow")), [Literal (Literal.NUMBER 4.0); Literal (Literal.NUMBER 2.0)]))
+        let expected = Call (Literal (Literal.IDENTIFIER (VarIdentifier "foo")), [numFun ; stringFun])
 
         AssertExpressionTreesEqual expected (ParseExpressionSource complexSource)
 
@@ -355,7 +355,7 @@ type ParserTest () =
         let block = StatementDeclaration (Block [eggman; eggwoman; empty])
 
         let alpha = VariableDeclaration (VarIdentifier "a", Some (Expression.Literal (Literal.NUMBER 0.0) ))
-        let printAlpha = StatementDeclaration (PrintStatement (Expression.Literal (Literal.IDENTIFIER "a") ))
+        let printAlpha = StatementDeclaration (PrintStatement (Expression.Literal (Literal.IDENTIFIER (VarIdentifier "a")) ))
 
         let expectedDeclarations = [alpha; block; printAlpha] 
 
@@ -494,15 +494,15 @@ type ParserTest () =
         let expected = [
             VariableDeclaration (VarIdentifier "a", Some (Literal (Literal.NUMBER 0.0))); 
             StatementDeclaration (WhileStatement
-               (BinaryExpression (Literal (Literal.IDENTIFIER "a"), BinaryOperator.LESS, Literal (Literal.NUMBER 5.0)),
+               (BinaryExpression (Literal (Literal.IDENTIFIER (VarIdentifier "a")), BinaryOperator.LESS, Literal (Literal.NUMBER 5.0)),
                 Block
                   [StatementDeclaration
                      (ExpressionStatement
                         (Assign
                            (VarIdentifier "a",
                             BinaryExpression
-                              (Literal (Literal.IDENTIFIER "a"), BinaryOperator.PLUS, Literal (Literal.NUMBER 1.0)))))]));
-            StatementDeclaration (ExpressionStatement (Literal (Literal.IDENTIFIER "a")))
+                              (Literal (Literal.IDENTIFIER (VarIdentifier "a")), BinaryOperator.PLUS, Literal (Literal.NUMBER 1.0)))))]));
+            StatementDeclaration (ExpressionStatement (Literal (Literal.IDENTIFIER (VarIdentifier "a"))))
             ]
 
         Assert.AreEqual (expected, declarations)

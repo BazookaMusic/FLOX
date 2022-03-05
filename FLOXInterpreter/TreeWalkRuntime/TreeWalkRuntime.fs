@@ -121,7 +121,7 @@ let EvaluateLiteral (env: Environment) (literal: Literal) : EvaluationResult<FLO
         | NIL -> Ok Nil
         | TRUEVAL -> Ok (Boolean true)
         | FALSEVAL -> Ok (Boolean false)
-        | IDENTIFIER varName -> GetVariableValueOrError env (VarIdentifier varName)
+        | IDENTIFIER varName -> GetVariableValueOrError env varName
 
 let EvaluateBinary (evaluationFn: Expression -> EvaluationResult<FLOXValue>) (left: Expression) (op: BinaryOperator) (right: Expression) =
     match op with
@@ -206,12 +206,12 @@ let rec EvaluateExpression (environment: Environment) (expression: Expression): 
             let functionToCall = evaluateWithEnvironment calleeExpression
 
             match functionToCall with
-                | Ok (Callable (name, argumentNames, callable)) ->
+                | Ok (Callable (name, argumentNames, callable, closure)) ->
                     match argumentsEvaluated with
                           | Ok args ->
                                if (args.Count = argumentNames.Count) then
                                     try
-                                        callable (EnvironmentFromArguments environment argumentNames args)
+                                        callable (EnvironmentFromArguments closure argumentNames args)
                                     with
                                         | FlowReturn v -> Ok v
                                else
@@ -333,10 +333,12 @@ and EvaluateDeclaration (environment: Environment) (declaration: Declaration): E
                 value
             | error -> error
         | FunctionDeclaration (functionIdentifier, parameters, body) ->
-            let funcBody = fun (env : Environment) -> EvaluateBlock env body
             let VarIdentifier funcName as fn = functionIdentifier
             let paramNames =  List.map (fun (VarIdentifier parameterIdentifier) -> parameterIdentifier) parameters
-            let callable = Callable (funcName, ToList paramNames, funcBody)
+
+            let closure : Environment = EnvironmentSnapshot environment
+            let funcBody = fun (env : Environment) -> EvaluateBlock env body
+            let callable = Callable (funcName, ToList paramNames, funcBody, closure)
 
             DefineVariable environment functionIdentifier callable |> ignore
             Ok callable

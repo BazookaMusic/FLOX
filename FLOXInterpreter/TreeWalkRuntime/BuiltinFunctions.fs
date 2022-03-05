@@ -16,7 +16,7 @@ let currentTimeFunction environment =
     let currentMilliseconds = double (currentTicks / (TimeSpan.TicksPerMillisecond))
     Ok (Double currentMilliseconds)
 
-let ClockFunction = Callable ("clock", new List<string>(0), currentTimeFunction)
+let ClockFunction = Callable ("clock", new List<string>(0), currentTimeFunction, Constants.EmptyEnvironment)
 
 let powerFunction environment =
     let number = GetVariableValue environment (VarIdentifier "number")
@@ -43,7 +43,7 @@ let toStringFunction (environment : Environment) =
 let ToStringFunction =
     let arguments = new List<string>(1)
     arguments.Add "value"
-    Callable ("toString", arguments, toStringFunction)
+    Callable ("toString", arguments, toStringFunction, Constants.EmptyEnvironment)
 
 // MATH
 
@@ -62,13 +62,13 @@ let RandomIntFunction =
     let arguments = new List<string>(1)
     arguments.Add "maxValue"
 
-    Callable ("random", arguments, randomInt)
+    Callable ("random", arguments, randomInt, Constants.EmptyEnvironment)
 
 let PowerFunction = 
     let arguments = new List<string>(2)
     arguments.Add "number"
     arguments.Add "exponent"
-    Callable ("pow",  arguments, powerFunction)
+    Callable ("pow",  arguments, powerFunction, Constants.EmptyEnvironment)
 
 // IO
 
@@ -116,16 +116,16 @@ let writeLineFunction environment =
 let ParseNumberFunction =
     let arguments = new List<string>(1)
     arguments.Add "value"
-    Callable ("parseNumber", arguments, parseNumberFunction)
+    Callable ("parseNumber", arguments, parseNumberFunction, Constants.EmptyEnvironment)
 
 let ReadLineFunction =
     let arguments = NoArguments
-    Callable ("readLine", arguments, readLineFunction)
+    Callable ("readLine", arguments, readLineFunction, Constants.EmptyEnvironment)
 
 let WriteLineFunction = 
     let arguments = new List<string>(1)
     arguments.Add "line"
-    Callable ("writeLine", arguments, writeLineFunction)
+    Callable ("writeLine", arguments, writeLineFunction, Constants.EmptyEnvironment)
 
 let BuiltinFunctions = [
     ClockFunction
@@ -139,7 +139,7 @@ let BuiltinFunctions = [
 
 let DefineBuiltinFunctions environment =
     let defineFunction func =
-        let Callable (name, _, _) as c = func
+        let Callable (name, _, _, _) as c = func
         DefineVariable environment (VarIdentifier name) func
 
     List.iter defineFunction BuiltinFunctions

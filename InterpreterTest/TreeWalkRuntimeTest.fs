@@ -63,12 +63,12 @@ type TreeWalkRuntimeTest () =
 
     let floxValueEquality (x : FLOXValue) (y: FLOXValue) =
         match (x,y) with
-            | (Callable (nameLeft, paramsLeft, _), Callable (nameRight, paramsRight, _)) ->
+            | (Callable (nameLeft, paramsLeft, _, _), Callable (nameRight, paramsRight, _, _)) ->
                 Assert.AreEqual (nameLeft, nameRight)
                 Assert.AreEqual (paramsLeft.Count, paramsRight.Count, $"Mismatch between parameter count for fn {nameLeft} with ${paramsLeft.Count} left and ${paramsRight.Count} right")
                 let pairs = List.zip (Seq.toList paramsLeft) (Seq.toList paramsRight)
                 List.iter (fun (x,y) -> Assert.AreEqual (x,y)) pairs
-            | (x,y) -> Assert.AreEqual (x,y)
+            | (x,y) -> Assert.AreEqual (y,x)
 
     let rec AssertDeclarationEvaluationsMatch (sources: string list) (expected: EvaluationResult<FLOXValue> list list) =
         let actual = List.map (fun s -> s |> ParseDeclaration |> (List.map (EvaluateDeclaration GlobalEnvironment))) sources
@@ -118,8 +118,9 @@ type TreeWalkRuntimeTest () =
                     Assert.Fail (sprintf "The source '%s' was expected to evaluate to an error but instead evaluated to '%A'" (getn mutableIndex sources) e2)
 
         List.iter matchingErrorTypes actualExpectedPairs
-
     
+    let CallableIgnoreClosure (identifier, argumentNames, func) = Callable (identifier, argumentNames, func, Constants.EmptyEnvironment)
+
 
     [<TestMethod>]
     member this.LiteralEvaluationTest () =
@@ -441,11 +442,43 @@ type TreeWalkRuntimeTest () =
         ]
 
         let expected: EvaluationResult<FLOXValue> list list = [
-            [Ok (Callable ("identity", ToList ["x"], fun env -> Ok VOID)); Ok (Double 1.0)]
-            [Ok (Callable ("sum", ToList ["x";"y"], fun env -> Ok VOID)); Ok (Double 5.0)]
-            [Ok (Callable ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 1.0) ]
-            [Ok (Callable ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 2.0) ]
-            [Ok (Callable ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 21.0) ]
+            [Ok (CallableIgnoreClosure ("identity", ToList ["x"], fun env -> Ok VOID)); Ok (Double 1.0)]
+            [Ok (CallableIgnoreClosure ("sum", ToList ["x";"y"], fun env -> Ok VOID)); Ok (Double 5.0)]
+            [Ok (CallableIgnoreClosure ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 1.0) ]
+            [Ok (CallableIgnoreClosure ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 2.0) ]
+            [Ok (CallableIgnoreClosure ("fibonacci", ToList ["n"], fun env -> Ok VOID)); Ok (Double 21.0) ]
+        ]
+
+        AssertDeclarationEvaluationsMatch sources expected
+
+    [<TestMethod>]
+    member this.ClosuresTest() =
+        let sources = [
+          "fun identity(x) { return x;} var x = 18; identity(1);"
+          "var x = 15; fun closure() { return x;}  closure();"
+          "var x = 15; fun closure(x) { return x;}  closure(1);"
+          "var x = 15; fun closure(x) { var x = 14; return x;} closure(12);"
+          "var x = 15; var y = 16; fun closure1() { fun closure2() { y = 14; return x;} return closure2() + y; } closure1();"
+          "fun closure() { return 1; }
+
+          fun action()\
+          {\
+            fun otherValue() { var z = 4; return z;}
+            return otherValue();
+          }\
+          \
+          action();"
+          "var x = 1000; fun a1() { var x = 1; fun a2() { fun a3() { x = 3; return x;} var x = 2; return a3(); } return a2();} a1();"
+        ]
+
+        let expected: EvaluationResult<FLOXValue> list list = [
+            [Ok (CallableIgnoreClosure ("identity", ToList ["x"], fun env -> Ok VOID)); Ok (Double 18.0); Ok (Double 1.0)]
+            [Ok (Double 15.0); Ok (CallableIgnoreClosure ("closure", ToList [], fun env -> Ok VOID)); Ok (Double 15.0)]
+            [Ok (Double 15.0); Ok (CallableIgnoreClosure ("closure", ToList ["x"], fun env -> Ok VOID)); Ok (Double 1.0)]
+            [Ok (Double 15.0); Ok (CallableIgnoreClosure ("closure", ToList ["x"], fun env -> Ok VOID)); Ok (Double 14.0)]
+            [Ok (Double 15.0); Ok (Double 16.0); Ok (CallableIgnoreClosure ("closure1", ToList [], fun env -> Ok VOID)); Ok (Double 29.0)]
+            [Ok (CallableIgnoreClosure ("closure", ToList [], fun env -> Ok VOID)); Ok (CallableIgnoreClosure ("action", ToList [], fun env -> Ok VOID)); Ok (Double (4.0))]
+            [Ok (Double 1000.0); Ok (CallableIgnoreClosure ("a1", ToList [], fun env -> Ok VOID)); Ok (Double (3.0))]
         ]
 
         AssertDeclarationEvaluationsMatch sources expected

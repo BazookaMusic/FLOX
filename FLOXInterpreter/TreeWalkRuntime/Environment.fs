@@ -10,10 +10,10 @@ let rec GetVariableValue (environment: Environment) (identifier:Identifier): Opt
     | Environment (dictionary, linked) | ImmutableEnvironment (dictionary, linked) ->
         match identifier with
         | VarIdentifier varName ->
-            let mutable value: FLOXValue = Nil
+            let mutable value: Ref<FLOXValue> = ref Nil
             let foundVariable = dictionary.TryGetValue(varName, &value)
             if foundVariable then
-                Some value
+                Some (value.Value)
             else
                 match linked with
                     | Some env -> GetVariableValue env identifier
@@ -31,7 +31,7 @@ let DefineVariable (environment: Environment) (identifier:Identifier) (value: FL
     match environment with
         | Environment (dictionary, _) ->
             let VarIdentifier (varName) as v = identifier
-            dictionary.[varName] <- value
+            dictionary.[varName] <- ref value
         | ImmutableEnvironment _  -> () // immutable environments cannot be modified
 
 let rec SetVariableValue (environment: Environment) (identifier:Identifier) (value: FLOXValue): bool =
@@ -41,7 +41,7 @@ let rec SetVariableValue (environment: Environment) (identifier:Identifier) (val
         | VarIdentifier varName ->
             let foundVariable = dictionary.ContainsKey(varName)
             if foundVariable then
-                dictionary.[varName] <- value
+                dictionary.[varName].Value <- value
                 true
             else
                 match linked with
@@ -53,12 +53,17 @@ let rec SetVariableValue (environment: Environment) (identifier:Identifier) (val
             | Some env -> SetVariableValue env identifier value
 
 let NewEnvironment (parent: Option<Environment>) =
-    Environment (new Dictionary<string,FLOXValue>(), parent)
+    Environment (new Dictionary<string,Ref<FLOXValue>>(), parent)
 
 let NewImmutableEnvironment (env: Environment) =
     match env with
         | ImmutableEnvironment _ -> env
         | Environment (dictionary, parent) -> ImmutableEnvironment (dictionary, parent)
+
+let EnvironmentSnapshot (env: Environment) : Environment =
+    match env with
+        | Environment (dictionary, parent) -> Environment (new Dictionary<string, Ref<FLOXValue>>(dictionary), parent)
+        | ImmutableEnvironment (dictionary, parent) -> ImmutableEnvironment (new Dictionary<string, Ref<FLOXValue>>(dictionary), parent) 
 
 let rec EnvironmentWithNameValueMapping (environment: Environment) (names: List<string>) (values: List<FLOXValue>) (index: int) =
     if index = names.Count then

@@ -18,12 +18,12 @@ type FLOXValue =
     | String of s:string
     | Boolean of b:bool
     | Double of d: double
-    | Callable of FunctionIdentifier * ArgumentNameList * (Environment -> EvaluationResult<FLOXValue>)
+    | Callable of FunctionIdentifier * ArgumentNameList * (Environment -> EvaluationResult<FLOXValue>) * Environment
     | VOID
 
 and Environment =
-    | Environment of Dictionary<string, FLOXValue> * Option<Environment>
-    | ImmutableEnvironment of Dictionary<string, FLOXValue> * Option<Environment>
+    | Environment of Dictionary<string, Ref<FLOXValue>> * Option<Environment>
+    | ImmutableEnvironment of Dictionary<string, Ref<FLOXValue>> * Option<Environment>
 
 and ArgumentNameList = List<string>
 
@@ -35,4 +35,4 @@ let StringifyValue (v: FLOXValue) : string =
         | Boolean b -> if b then "true" else "false"
         | Double d -> d.ToString()
         | VOID -> "void"
-        | Callable (id,args, _) -> sprintf "func %s(%d)" id args.Count
+        | Callable (id,args, _, _) -> sprintf "func %s(%d)" id args.Count

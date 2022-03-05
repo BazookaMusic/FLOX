@@ -1,0 +1,15 @@
+fun rockPaperScissors(player1Answer, player2Answer)
+{
+    var x = 3;
+
+    fun innerFun()
+    {
+        return x;
+    }
+
+    var x = 13;
+
+    return innerFun();
+}
+
+return rockPaperScissors(1,2);
